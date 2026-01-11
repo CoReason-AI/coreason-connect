@@ -17,6 +17,10 @@ repos:
     rev: v1.18.2
     hooks:
       - id: mypy
+        additional_dependencies:
+          - mcp>=1.25.0
+          - types-PyYAML>=6.0.12
+          - pydantic>=2.12.5
   - repo: https://github.com/AleksaC/hadolint-py
     rev: v2.14.0
     hooks:
