@@ -64,7 +64,7 @@ def test_server_inheritance_functional_integration() -> None:
     server = CoreasonConnectServer(name="integration-test", version="1.0.0")
 
     # 1. Register a List Tools handler
-    @server.list_tools()  # type: ignore[misc]
+    @server.list_tools()  # type: ignore[misc, no-untyped-call]
     async def list_tools() -> list[Tool]:
         return []
 
