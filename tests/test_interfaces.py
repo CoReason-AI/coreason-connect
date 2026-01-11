@@ -8,6 +8,7 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
+from abc import abstractmethod
 from typing import Any
 
 import pytest
@@ -39,7 +40,8 @@ class ConcreteConnector(ConnectorProtocol):
         ]
 
     def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
-        return f"executed_{tool_name}"
+        args_str = str(arguments) if arguments else "None"
+        return f"executed_{tool_name}_with_{args_str}"
 
 
 def test_cannot_instantiate_abstract_connector() -> None:
@@ -79,21 +81,95 @@ def test_concrete_connector_methods() -> None:
     assert isinstance(tools[0], Tool)
     assert tools[0].name == "test_tool"
 
-    result = connector.execute("test_tool", {})
-    assert result == "executed_test_tool"
+    result = connector.execute("test_tool", {"foo": "bar"})
+    assert result == "executed_test_tool_with_{'foo': 'bar'}"
 
 
-def test_secrets_provider_protocol() -> None:
-    """Ensure MockSecretsProvider satisfies SecretsProvider protocol (static check mostly)."""
-    # Runtime check
+def test_secrets_provider_protocol_runtime() -> None:
+    """Ensure runtime_checkable works for SecretsProvider."""
+    # 1. Valid implementation
+    valid = MockSecretsProvider()
+    assert isinstance(valid, SecretsProvider)
+
+    # 2. Invalid implementation (missing methods)
+    class InvalidProvider:
+        def get_secret(self, key: str) -> str:
+            return "k"
+
+    invalid = InvalidProvider()
+    assert not isinstance(invalid, SecretsProvider)
+
+    # 3. Invalid implementation (missing all methods)
+    class EmptyProvider:
+        pass
+
+    empty = EmptyProvider()
+    assert not isinstance(empty, SecretsProvider)
+
+
+def test_complex_connector_scenario() -> None:
+    """Test a connector that uses secrets to determine available tools."""
+
+    class DynamicConnector(ConnectorProtocol):
+        def get_tools(self) -> list[Tool]:
+            # Simulate checking a license key from secrets
+            license_key = self.secrets.get_secret("LICENSE_KEY")
+            tools = []
+            if license_key == "secret_for_LICENSE_KEY":
+                tools.append(Tool(name="premium_tool", inputSchema={}, description="Premium"))
+            return tools
+
+        def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+            return "ok"
+
     secrets = MockSecretsProvider()
-    assert isinstance(
-        secrets, SecretsProvider
-    )  # This works with runtime_checkable if added, but Protocol by default isn't runtime checkable without decoration.
-    # Actually Protocol without @runtime_checkable won't work with isinstance.
-    # However, for Python typing, it matters.
-    # We can check signatures manually or just rely on Mypy.
+    connector = DynamicConnector(secrets)
 
-    assert hasattr(secrets, "get_secret")
-    assert hasattr(secrets, "get_user_credential")
-    assert secrets.get_secret("foo") == "secret_for_foo"
+    tools = connector.get_tools()
+    assert len(tools) == 1
+    assert tools[0].name == "premium_tool"
+
+
+def test_connector_argument_defaults() -> None:
+    """Test that execute handles None arguments as per signature default."""
+    secrets = MockSecretsProvider()
+    connector = ConcreteConnector(secrets)
+
+    # Call without arguments provided
+    result = connector.execute("test_tool")
+    assert "with_None" in result
+
+    # Call with explicit None
+    result_none = connector.execute("test_tool", None)
+    assert "with_None" in result_none
+
+
+def test_connector_inheritance_chain() -> None:
+    """Test multi-level inheritance for connectors."""
+
+    class BaseFeatureConnector(ConnectorProtocol):
+        """Intermediate class adding shared helper methods."""
+
+        def helper(self) -> str:
+            return "helper"
+
+        @abstractmethod
+        def specific_task(self) -> None:
+            pass
+
+    class FinalConnector(BaseFeatureConnector):
+        def get_tools(self) -> list[Tool]:
+            return []
+
+        def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+            return self.helper()
+
+        def specific_task(self) -> None:
+            pass
+
+    secrets = MockSecretsProvider()
+    connector = FinalConnector(secrets)
+
+    assert isinstance(connector, ConnectorProtocol)
+    assert isinstance(connector, BaseFeatureConnector)
+    assert connector.execute("foo") == "helper"
