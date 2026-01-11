@@ -39,6 +39,25 @@ class PluginConfig(BaseModel):
     base_url: str | None = Field(None, description="Base URL for OpenAPI plugins")
     scopes: list[str] = Field(default_factory=list, description="OAuth scopes for native plugins")
 
+    @field_validator("path")
+    @classmethod
+    def validate_path_safety(cls, v: str | None) -> str | None:
+        """Ensure the path is within the safe zone."""
+        if v is None:
+            return v
+
+        safe_zone = Path(os.getcwd()).resolve()
+        try:
+            # resolve() handles '..' and symlinks
+            target_path = Path(v).resolve()
+        except Exception as e:
+            raise ValueError(f"Invalid path resolution: {e}") from e
+
+        if not target_path.is_relative_to(safe_zone):
+            raise ValueError(f"Plugin path must be within the safe zone ({safe_zone})")
+
+        return v
+
 
 class AppConfig(BaseModel):
     """Root configuration for the application."""
