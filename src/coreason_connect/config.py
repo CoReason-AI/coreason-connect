@@ -10,11 +10,20 @@
 
 import os
 from pathlib import Path
+from typing import Annotated, Any
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field, field_validator
 
 from coreason_connect.utils.logger import logger
+
+
+def force_str(v: Any) -> str:
+    """Force conversion to string."""
+    return str(v)
+
+
+Stringified = Annotated[str, BeforeValidator(force_str)]
 
 
 class PluginConfig(BaseModel):
@@ -24,7 +33,9 @@ class PluginConfig(BaseModel):
     type: str = Field(..., description="Type of the plugin (local_python, openapi, native)")
     path: str | None = Field(None, description="Path to the plugin source or spec")
     description: str | None = Field(None, description="Human-readable description")
-    env_vars: dict[str, str] = Field(default_factory=dict, description="Environment variables required by the plugin")
+    env_vars: dict[str, Stringified] = Field(
+        default_factory=dict, description="Environment variables required by the plugin"
+    )
     base_url: str | None = Field(None, description="Base URL for OpenAPI plugins")
     scopes: list[str] = Field(default_factory=list, description="OAuth scopes for native plugins")
 
@@ -33,6 +44,16 @@ class AppConfig(BaseModel):
     """Root configuration for the application."""
 
     plugins: list[PluginConfig] = Field(default_factory=list, description="List of configured plugins")
+
+    @field_validator("plugins")
+    @classmethod
+    def check_unique_ids(cls, v: list[PluginConfig]) -> list[PluginConfig]:
+        """Ensure that all plugin IDs are unique."""
+        ids = [p.id for p in v]
+        if len(ids) != len(set(ids)):
+            duplicates = set([x for x in ids if ids.count(x) > 1])
+            raise ValueError(f"Duplicate plugin IDs found: {duplicates}")
+        return v
 
 
 def load_config(config_path: str | Path | None = None) -> AppConfig:

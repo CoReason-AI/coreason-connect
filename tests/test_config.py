@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -118,3 +119,82 @@ def test_load_config_not_dict_root(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="Configuration root must be a dictionary"):
         load_config(config_file)
+
+
+def test_load_config_duplicate_ids(tmp_path: Path) -> None:
+    """Test that duplicate plugin IDs raise a ValueError."""
+    config_file = tmp_path / "dup.yaml"
+    data = {
+        "plugins": [
+            {"id": "p1", "type": "native"},
+            {"id": "p1", "type": "local_python"},
+        ]
+    }
+    with open(config_file, "w") as f:
+        yaml.dump(data, f)
+
+    with pytest.raises(ValueError, match="Duplicate plugin IDs found"):
+        load_config(config_file)
+
+
+def test_load_config_type_coercion(tmp_path: Path) -> None:
+    """Test that types are coerced (e.g., int to str in env_vars)."""
+    config_file = tmp_path / "coercion.yaml"
+    data = {
+        "plugins": [
+            {
+                "id": "p1",
+                "type": "native",
+                "env_vars": {"PORT": 8080, "DEBUG": True},
+            }
+        ]
+    }
+    with open(config_file, "w") as f:
+        yaml.dump(data, f)
+
+    config = load_config(config_file)
+    plugin = config.plugins[0]
+    assert plugin.env_vars["PORT"] == "8080"
+    assert plugin.env_vars["DEBUG"] == "True"  # Pydantic converts True to "True"
+
+
+def test_load_config_unicode(tmp_path: Path) -> None:
+    """Test handling of unicode characters."""
+    config_file = tmp_path / "unicode.yaml"
+    data = {
+        "plugins": [
+            {
+                "id": "emoji-🚀",
+                "type": "native",
+                "description": "Café operation",
+            }
+        ]
+    }
+    with open(config_file, "w", encoding="utf-8") as f:
+        yaml.dump(data, f, allow_unicode=True)
+
+    config = load_config(config_file)
+    plugin = config.plugins[0]
+    assert plugin.id == "emoji-🚀"
+    assert plugin.description == "Café operation"
+
+
+def test_load_config_permission_error(tmp_path: Path) -> None:
+    """Test handling of permission errors."""
+    if os.name == "nt":  # Skip on Windows as chmod behavior is different
+        return
+
+    config_file = tmp_path / "protected.yaml"
+    config_file.touch()
+
+    # Remove read permissions
+    config_file.chmod(0o000)
+
+    try:
+        # Pydantic/YAML load fails when file can't be opened
+        # But load_config calls open(), which should raise PermissionError
+        with pytest.raises(PermissionError):
+            load_config(config_file)
+    finally:
+        # Restore permissions so cleanup works
+        config_file.chmod(0o666)
