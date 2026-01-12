@@ -42,3 +42,43 @@ class TestEnvSecretsProvider:
         with mock.patch.dict(os.environ, {}, clear=True):
             with pytest.raises(KeyError, match="Credential 'MISSING_CRED' not found"):
                 provider.get_user_credential("MISSING_CRED")
+
+    # Edge Case Tests
+
+    def test_get_secret_empty_string(self, provider: EnvSecretsProvider) -> None:
+        """Test retrieving a secret set to an empty string."""
+        with mock.patch.dict(os.environ, {"EMPTY_SECRET": ""}):
+            assert provider.get_secret("EMPTY_SECRET") == ""
+
+    def test_get_secret_whitespace(self, provider: EnvSecretsProvider) -> None:
+        """Test retrieving a secret containing only whitespace."""
+        with mock.patch.dict(os.environ, {"WHITESPACE_SECRET": "   "}):
+            assert provider.get_secret("WHITESPACE_SECRET") == "   "
+
+    def test_get_secret_special_chars(self, provider: EnvSecretsProvider) -> None:
+        """Test retrieving a secret with special characters."""
+        special_val = "!@#$%^&*()_+-=[]{}|;':,./<>?`~\\"
+        with mock.patch.dict(os.environ, {"SPECIAL_SECRET": special_val}):
+            assert provider.get_secret("SPECIAL_SECRET") == special_val
+
+    def test_get_secret_case_sensitivity(self, provider: EnvSecretsProvider) -> None:
+        """Test that key lookup is case-sensitive (standard POSIX behavior behavior)."""
+        with mock.patch.dict(os.environ, {"UPPERCASE_KEY": "value"}, clear=True):
+            # Should find uppercase
+            assert provider.get_secret("UPPERCASE_KEY") == "value"
+            # Should fail for lowercase
+            with pytest.raises(KeyError):
+                provider.get_secret("uppercase_key")
+
+    # Complex Scenario Tests
+
+    def test_get_user_credential_json_string(self, provider: EnvSecretsProvider) -> None:
+        """
+        Test retrieving a complex credential stored as a JSON string.
+        The provider should return the raw string as-is without parsing.
+        """
+        json_val = '{"username": "admin", "password": "super_secret_password!", "meta": {"id": 123}}'
+        with mock.patch.dict(os.environ, {"COMPLEX_CRED": json_val}):
+            result = provider.get_user_credential("COMPLEX_CRED")
+            assert isinstance(result, str)
+            assert result == json_val
