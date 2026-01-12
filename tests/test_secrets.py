@@ -9,6 +9,7 @@
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
 import os
+import sys
 from unittest import mock
 
 import pytest
@@ -62,13 +63,22 @@ class TestEnvSecretsProvider:
             assert provider.get_secret("SPECIAL_SECRET") == special_val
 
     def test_get_secret_case_sensitivity(self, provider: EnvSecretsProvider) -> None:
-        """Test that key lookup is case-sensitive (standard POSIX behavior behavior)."""
+        """
+        Test case sensitivity behavior.
+        - POSIX (Linux/macOS): Case-sensitive (uppercase != lowercase).
+        - Windows: Case-insensitive (uppercase == lowercase).
+        """
         with mock.patch.dict(os.environ, {"UPPERCASE_KEY": "value"}, clear=True):
-            # Should find uppercase
+            # Should always find the exact match
             assert provider.get_secret("UPPERCASE_KEY") == "value"
-            # Should fail for lowercase
-            with pytest.raises(KeyError):
-                provider.get_secret("uppercase_key")
+
+            if sys.platform == "win32":
+                # On Windows, lowercase lookup should also work
+                assert provider.get_secret("uppercase_key") == "value"
+            else:
+                # On POSIX, lowercase lookup should fail
+                with pytest.raises(KeyError):
+                    provider.get_secret("uppercase_key")
 
     # Complex Scenario Tests
 
