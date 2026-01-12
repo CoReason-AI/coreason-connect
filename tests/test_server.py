@@ -1,18 +1,18 @@
-import asyncio
+import json
 from typing import Any
-
-import pytest
-from mcp.server import Server
-import mcp.types as types
 from unittest.mock import MagicMock
 
+import mcp.types as types
+import pytest
+from mcp.server import Server
+
 from coreason_connect.config import AppConfig, PluginConfig
-from coreason_connect.server import CoreasonConnectServer
-from coreason_connect.secrets import EnvSecretsProvider
 from coreason_connect.interfaces import ConnectorProtocol
+from coreason_connect.secrets import EnvSecretsProvider
+from coreason_connect.server import CoreasonConnectServer
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[misc]
 def mock_plugin_config() -> AppConfig:
     return AppConfig(
         plugins=[
@@ -43,7 +43,7 @@ def test_server_initialization_with_plugins(mock_plugin_config: AppConfig) -> No
     assert "mock_echo" in server.tool_registry
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio  # type: ignore[misc]
 async def test_list_tools(mock_plugin_config: AppConfig) -> None:
     """Test listing tools."""
     server = CoreasonConnectServer(config=mock_plugin_config)
@@ -56,21 +56,19 @@ async def test_list_tools(mock_plugin_config: AppConfig) -> None:
     assert tools[0].description == "Echoes the input."
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio  # type: ignore[misc]
 async def test_call_tool(mock_plugin_config: AppConfig) -> None:
     """Test calling a tool."""
     server = CoreasonConnectServer(config=mock_plugin_config)
 
-    result = await server._call_tool_handler(
-        name="mock_echo", arguments={"message": "Hello"}
-    )
+    result = await server._call_tool_handler(name="mock_echo", arguments={"message": "Hello"})
 
     assert len(result) == 1
     assert result[0].type == "text"
     assert result[0].text == "Echo: Hello"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio  # type: ignore[misc]
 async def test_call_tool_json_result(mock_plugin_config: AppConfig) -> None:
     """Test calling a tool that returns a JSON-serializable structure."""
     server = CoreasonConnectServer(config=mock_plugin_config)
@@ -80,43 +78,39 @@ async def test_call_tool_json_result(mock_plugin_config: AppConfig) -> None:
     mock_plugin.execute.return_value = {"status": "success", "data": [1, 2, 3]}
     server.tool_registry["mock_json"] = mock_plugin
 
-    result = await server._call_tool_handler(
-        name="mock_json", arguments={}
-    )
+    result = await server._call_tool_handler(name="mock_json", arguments={})
 
     assert len(result) == 1
     assert result[0].type == "text"
-    assert '"status": "success"' in result[0].text
-    assert '"data": [1, 2, 3]' in result[0].text
+    # Ensure it's valid JSON string
+    loaded = json.loads(result[0].text)  # type: ignore[attr-defined]
+    assert loaded["status"] == "success"
+    assert loaded["data"] == [1, 2, 3]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio  # type: ignore[misc]
 async def test_call_tool_missing_arg(mock_plugin_config: AppConfig) -> None:
     """Test calling a tool with missing arguments."""
     server = CoreasonConnectServer(config=mock_plugin_config)
 
-    result = await server._call_tool_handler(
-        name="mock_echo", arguments={}
-    )
+    result = await server._call_tool_handler(name="mock_echo", arguments={})
 
     assert len(result) == 1
     assert result[0].type == "text"
-    assert "Error executing tool" in result[0].text
-    assert "Missing 'message' argument" in result[0].text
+    assert "Error executing tool" in result[0].text  # type: ignore[attr-defined,union-attr]
+    assert "Missing 'message' argument" in result[0].text  # type: ignore[attr-defined,union-attr]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio  # type: ignore[misc]
 async def test_call_unknown_tool(mock_plugin_config: AppConfig) -> None:
     """Test calling an unknown tool."""
     server = CoreasonConnectServer(config=mock_plugin_config)
 
-    result = await server._call_tool_handler(
-        name="unknown_tool", arguments={}
-    )
+    result = await server._call_tool_handler(name="unknown_tool", arguments={})
 
     assert len(result) == 1
     assert result[0].type == "text"
-    assert "Error: Tool 'unknown_tool' not found" in result[0].text
+    assert "Error: Tool 'unknown_tool' not found" in result[0].text  # type: ignore[attr-defined,union-attr]
 
 
 def test_load_plugins_error_handling(mock_plugin_config: AppConfig) -> None:
@@ -128,7 +122,7 @@ def test_load_plugins_error_handling(mock_plugin_config: AppConfig) -> None:
     mock_plugin.get_tools.side_effect = Exception("Test Error")
 
     # Mock the loader to return our malicious plugin
-    server.plugin_loader.load_all = MagicMock(return_value={"mock-plugin": mock_plugin})
+    server.plugin_loader.load_all = MagicMock(return_value={"mock-plugin": mock_plugin})  # type: ignore[method-assign]
 
     # Re-run _load_plugins to trigger the error
     server.tool_registry.clear()
@@ -150,10 +144,9 @@ def test_load_plugins_duplicate_tool_warning(mock_plugin_config: AppConfig) -> N
     mock_plugin2 = MagicMock(spec=ConnectorProtocol)
     mock_plugin2.get_tools.return_value = [mock_tool]
 
-    server.plugin_loader.load_all = MagicMock(return_value={
-        "plugin1": mock_plugin1,
-        "plugin2": mock_plugin2
-    })
+    server.plugin_loader.load_all = MagicMock(  # type: ignore[method-assign]
+        return_value={"plugin1": mock_plugin1, "plugin2": mock_plugin2}
+    )
 
     # Re-run _load_plugins
     server.tool_registry.clear()
@@ -163,7 +156,7 @@ def test_load_plugins_duplicate_tool_warning(mock_plugin_config: AppConfig) -> N
     assert "duplicate_tool" in server.tool_registry
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio  # type: ignore[misc]
 async def test_list_tools_error_handling(mock_plugin_config: AppConfig) -> None:
     """Test error handling during list_tools."""
     server = CoreasonConnectServer(config=mock_plugin_config)
@@ -177,3 +170,70 @@ async def test_list_tools_error_handling(mock_plugin_config: AppConfig) -> None:
 
     # Should handle exception and return empty list (or partial list)
     assert len(tools) == 0
+
+
+@pytest.mark.asyncio  # type: ignore[misc]
+async def test_stateful_plugin(mock_plugin_config: AppConfig) -> None:
+    """Test that a plugin maintains state across calls."""
+    server = CoreasonConnectServer(config=mock_plugin_config)
+
+    # Define a simple stateful class
+    class StatefulPlugin:
+        def __init__(self) -> None:
+            self.counter = 0
+
+        def execute(self, name: str, args: dict[str, Any]) -> int:
+            self.counter += 1
+            return self.counter
+
+    plugin = StatefulPlugin()
+    server.tool_registry["increment"] = plugin  # type: ignore[assignment]
+
+    # First call
+    result1 = await server._call_tool_handler("increment", {})
+    assert result1[0].text == "1"  # type: ignore[attr-defined,union-attr]
+
+    # Second call
+    result2 = await server._call_tool_handler("increment", {})
+    assert result2[0].text == "2"  # type: ignore[attr-defined,union-attr]
+
+
+@pytest.mark.asyncio  # type: ignore[misc]
+async def test_call_tool_return_values(mock_plugin_config: AppConfig) -> None:
+    """Test handling of various return values (None, Object)."""
+    server = CoreasonConnectServer(config=mock_plugin_config)
+    mock_plugin = MagicMock(spec=ConnectorProtocol)
+    server.tool_registry["test_tool"] = mock_plugin
+
+    # Case 1: None
+    mock_plugin.execute.return_value = None
+    result = await server._call_tool_handler("test_tool", {})
+    assert result[0].text == "None"  # type: ignore[attr-defined,union-attr]
+
+    # Case 2: Custom Object
+    class CustomObj:
+        def __str__(self) -> str:
+            return "CustomString"
+
+    mock_plugin.execute.return_value = CustomObj()
+    result = await server._call_tool_handler("test_tool", {})
+    assert result[0].text == "CustomString"  # type: ignore[attr-defined,union-attr]
+
+
+@pytest.mark.asyncio  # type: ignore[misc]
+async def test_call_tool_complex_args(mock_plugin_config: AppConfig) -> None:
+    """Test passing complex arguments to a tool."""
+    server = CoreasonConnectServer(config=mock_plugin_config)
+    mock_plugin = MagicMock(spec=ConnectorProtocol)
+    # Echo back the args
+    mock_plugin.execute.side_effect = lambda name, args: args
+    server.tool_registry["complex_tool"] = mock_plugin
+
+    complex_args = {"user": {"id": 1, "name": "Test"}, "filters": ["active", "pending"], "meta": None}
+
+    result = await server._call_tool_handler("complex_tool", complex_args)
+
+    # Should be serialized back to JSON
+    loaded = json.loads(result[0].text)  # type: ignore[attr-defined,arg-type,union-attr]
+    assert loaded["user"]["id"] == 1
+    assert "active" in loaded["filters"]

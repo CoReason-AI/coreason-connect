@@ -48,7 +48,7 @@ class CoreasonConnectServer(Server):
         # Register handlers
         # Using type: ignore because mcp.server.Server decorators are not typed in a way mypy likes
         self.list_tools()(self._list_tools_handler)  # type: ignore[no-untyped-call]
-        self.call_tool()(self._call_tool_handler)  # type: ignore[misc]
+        self.call_tool()(self._call_tool_handler)  # type: ignore[no-untyped-call]
 
         logger.info(
             f"Initialized {name} v{version} with {len(self.plugins)} plugins and {len(self.tool_registry)} tools"
@@ -62,9 +62,7 @@ class CoreasonConnectServer(Server):
                 tools = plugin.get_tools()
                 for tool in tools:
                     if tool.name in self.tool_registry:
-                        logger.warning(
-                            f"Duplicate tool name '{tool.name}' found in plugin '{plugin_id}'. Overwriting."
-                        )
+                        logger.warning(f"Duplicate tool name '{tool.name}' found in plugin '{plugin_id}'. Overwriting.")
                     self.tool_registry[tool.name] = plugin
             except Exception as e:
                 logger.error(f"Failed to get tools from plugin '{plugin_id}': {e}")
@@ -85,11 +83,7 @@ class CoreasonConnectServer(Server):
         """Handler for calling tools."""
         plugin = self.tool_registry.get(name)
         if not plugin:
-            return [
-                types.TextContent(
-                    type="text", text=f"Error: Tool '{name}' not found."
-                )
-            ]
+            return [types.TextContent(type="text", text=f"Error: Tool '{name}' not found.")]
 
         try:
             result = plugin.execute(name, arguments)
@@ -100,6 +94,4 @@ class CoreasonConnectServer(Server):
             return [types.TextContent(type="text", text=result_str)]
         except Exception as e:
             logger.error(f"Error executing tool '{name}': {e}")
-            return [
-                types.TextContent(type="text", text=f"Error executing tool: {str(e)}")
-            ]
+            return [types.TextContent(type="text", text=f"Error executing tool: {str(e)}")]
