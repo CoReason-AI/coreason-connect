@@ -9,6 +9,7 @@
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
 import os
+import sys
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock, patch
@@ -184,3 +185,135 @@ def test_unsafe_path(mock_secrets: SecretsProvider, tmp_path: Path) -> None:
     plugins = loader.load_all()
 
     assert "unsafe" not in plugins
+
+
+def test_mixed_plugins_resilience(mock_secrets: SecretsProvider, tmp_path: Path, fixtures_dir: str) -> None:
+    """Test that valid plugins load even if others fail."""
+    # Create a mixed config
+    # 1. Valid plugin (from fixtures)
+    # 2. Init fail plugin (from fixtures)
+    # 3. Execution fail plugin (created here)
+
+    valid_path = os.path.join(fixtures_dir, "local_libs/adapters/valid_adapter.py")
+    init_fail_path = os.path.join(fixtures_dir, "local_libs/adapters/init_fail.py")
+
+    # We need a safe zone execution fail plugin
+    # existing fixture: tests/fixtures/local_libs/crash_plugins/crash_on_load.py
+    crash_path = os.path.join(fixtures_dir, "local_libs/crash_plugins/crash_on_load.py")
+
+    config_file = tmp_path / "mixed.yaml"
+    config_file.write_text(f"""
+plugins:
+  - id: "valid"
+    type: "local_python"
+    path: "{valid_path}"
+  - id: "init-fail"
+    type: "local_python"
+    path: "{init_fail_path}"
+  - id: "crasher"
+    type: "local_python"
+    path: "{crash_path}"
+""")
+
+    config = load_config(str(config_file))
+    loader = PluginLoader(config, mock_secrets)
+
+    plugins = loader.load_all()
+
+    # Assert valid plugin loaded
+    assert "valid" in plugins
+
+    # Assert faulty ones are missing
+    assert "init-fail" not in plugins
+    assert "crasher" not in plugins
+
+    # Assert count
+    assert len(plugins) == 1
+
+
+def test_isolation_class_names(mock_secrets: SecretsProvider, tmp_path: Path, fixtures_dir: str) -> None:
+    """Test loading two plugins with the same class name but different IDs."""
+
+    path1 = os.path.join(fixtures_dir, "local_libs/adapters/valid_adapter.py")
+    path2 = os.path.join(fixtures_dir, "local_libs/adapters/duplicate_class.py")
+
+    config_file = tmp_path / "collision.yaml"
+    config_file.write_text(f"""
+plugins:
+  - id: "first"
+    type: "local_python"
+    path: "{path1}"
+  - id: "second"
+    type: "local_python"
+    path: "{path2}"
+""")
+
+    config = load_config(str(config_file))
+    loader = PluginLoader(config, mock_secrets)
+
+    plugins = loader.load_all()
+
+    assert "first" in plugins
+    assert "second" in plugins
+
+    # Verify they are distinct objects of different classes (even if name is same)
+    obj1 = plugins["first"]
+    obj2 = plugins["second"]
+
+    assert obj1 is not obj2
+    assert obj1.__class__.__name__ == "ValidAdapter"
+    assert obj2.__class__.__name__ == "ValidAdapter"
+
+    # Verify behavior
+    assert obj1.execute("check_import") is True  # From valid_adapter.py
+    assert obj2.execute("any") == "duplicate"  # From duplicate_class.py
+
+
+def test_sys_path_hygiene(mock_secrets: SecretsProvider, tmp_path: Path, fixtures_dir: str) -> None:
+    """Verify sys.path is clean after a plugin crash."""
+    crash_path = os.path.join(fixtures_dir, "local_libs/crash_plugins/crash_on_load.py")
+
+    # The expected temporary path is .../tests/fixtures/local_libs/crash_plugins/.. -> crash_plugins
+    # Wait, the logic is parent.parent.
+    # crash_plugins/crash_on_load.py -> parent: crash_plugins -> parent: local_libs
+
+    lib_root = str(Path(crash_path).resolve().parent.parent)
+
+    config_file = tmp_path / "hygiene.yaml"
+    config_file.write_text(f"""
+plugins:
+  - id: "crasher"
+    type: "local_python"
+    path: "{crash_path}"
+""")
+
+    config = load_config(str(config_file))
+    loader = PluginLoader(config, mock_secrets)
+
+    # Ensure it's not there before
+    assert lib_root not in sys.path
+
+    loader.load_all()
+
+    # Ensure it's not there after
+    assert lib_root not in sys.path
+
+
+def test_init_failure(mock_secrets: SecretsProvider, tmp_path: Path, fixtures_dir: str) -> None:
+    """Test plugin that fails during __init__."""
+    init_fail_path = os.path.join(fixtures_dir, "local_libs/adapters/init_fail.py")
+
+    config_file = tmp_path / "init_fail.yaml"
+    config_file.write_text(f"""
+plugins:
+  - id: "init-fail"
+    type: "local_python"
+    path: "{init_fail_path}"
+""")
+
+    config = load_config(str(config_file))
+    loader = PluginLoader(config, mock_secrets)
+
+    plugins = loader.load_all()
+
+    assert "init-fail" not in plugins
