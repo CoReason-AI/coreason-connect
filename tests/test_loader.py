@@ -44,6 +44,11 @@ def config_path(fixtures_dir: str) -> str:
     return os.path.join(fixtures_dir, "connectors.yaml")
 
 
+def normalize_path(path: str) -> str:
+    """Normalize path to posix style to avoid YAML escape issues on Windows."""
+    return Path(path).as_posix()
+
+
 def test_load_valid_plugin(config_path: str, mock_secrets: SecretsProvider) -> None:
     """Test loading a valid plugin that imports a sibling library."""
     config = load_config(config_path)
@@ -127,7 +132,7 @@ def test_import_spec_failure(mock_secrets: SecretsProvider, tmp_path: Path) -> N
     config_file = tmp_path / "bad_spec.yaml"
 
     # Use a file inside safe zone
-    plugin_path = os.path.join("tests/fixtures/local_libs/crash_plugins/dummy.py")
+    plugin_path = normalize_path(os.path.join("tests/fixtures/local_libs/crash_plugins/dummy.py"))
 
     config_file.write_text(f"""
 plugins:
@@ -147,7 +152,7 @@ plugins:
 def test_module_execution_failure(mock_secrets: SecretsProvider, tmp_path: Path) -> None:
     """Test failure when module execution raises an exception."""
     # Use a file inside safe zone
-    plugin_path = os.path.join("tests/fixtures/local_libs/crash_plugins/crash_on_load.py")
+    plugin_path = normalize_path(os.path.join("tests/fixtures/local_libs/crash_plugins/crash_on_load.py"))
 
     config_file = tmp_path / "crash.yaml"
     config_file.write_text(f"""
@@ -194,12 +199,12 @@ def test_mixed_plugins_resilience(mock_secrets: SecretsProvider, tmp_path: Path,
     # 2. Init fail plugin (from fixtures)
     # 3. Execution fail plugin (created here)
 
-    valid_path = os.path.join(fixtures_dir, "local_libs/adapters/valid_adapter.py")
-    init_fail_path = os.path.join(fixtures_dir, "local_libs/adapters/init_fail.py")
+    valid_path = normalize_path(os.path.join(fixtures_dir, "local_libs/adapters/valid_adapter.py"))
+    init_fail_path = normalize_path(os.path.join(fixtures_dir, "local_libs/adapters/init_fail.py"))
 
     # We need a safe zone execution fail plugin
     # existing fixture: tests/fixtures/local_libs/crash_plugins/crash_on_load.py
-    crash_path = os.path.join(fixtures_dir, "local_libs/crash_plugins/crash_on_load.py")
+    crash_path = normalize_path(os.path.join(fixtures_dir, "local_libs/crash_plugins/crash_on_load.py"))
 
     config_file = tmp_path / "mixed.yaml"
     config_file.write_text(f"""
@@ -234,8 +239,8 @@ plugins:
 def test_isolation_class_names(mock_secrets: SecretsProvider, tmp_path: Path, fixtures_dir: str) -> None:
     """Test loading two plugins with the same class name but different IDs."""
 
-    path1 = os.path.join(fixtures_dir, "local_libs/adapters/valid_adapter.py")
-    path2 = os.path.join(fixtures_dir, "local_libs/adapters/duplicate_class.py")
+    path1 = normalize_path(os.path.join(fixtures_dir, "local_libs/adapters/valid_adapter.py"))
+    path2 = normalize_path(os.path.join(fixtures_dir, "local_libs/adapters/duplicate_class.py"))
 
     config_file = tmp_path / "collision.yaml"
     config_file.write_text(f"""
@@ -271,7 +276,7 @@ plugins:
 
 def test_sys_path_hygiene(mock_secrets: SecretsProvider, tmp_path: Path, fixtures_dir: str) -> None:
     """Verify sys.path is clean after a plugin crash."""
-    crash_path = os.path.join(fixtures_dir, "local_libs/crash_plugins/crash_on_load.py")
+    crash_path = normalize_path(os.path.join(fixtures_dir, "local_libs/crash_plugins/crash_on_load.py"))
 
     # The expected temporary path is .../tests/fixtures/local_libs/crash_plugins/.. -> crash_plugins
     # Wait, the logic is parent.parent.
@@ -301,7 +306,7 @@ plugins:
 
 def test_init_failure(mock_secrets: SecretsProvider, tmp_path: Path, fixtures_dir: str) -> None:
     """Test plugin that fails during __init__."""
-    init_fail_path = os.path.join(fixtures_dir, "local_libs/adapters/init_fail.py")
+    init_fail_path = normalize_path(os.path.join(fixtures_dir, "local_libs/adapters/init_fail.py"))
 
     config_file = tmp_path / "init_fail.yaml"
     config_file.write_text(f"""
