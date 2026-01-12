@@ -1,0 +1,10 @@
+plugins:
+  - id: "valid-plugin"
+    type: "local_python"
+    path: "tests/fixtures/local_libs/adapters/valid_adapter.py"
+    description: "A valid test plugin"
+
+  - id: "invalid-plugin"
+    type: "local_python"
+    path: "tests/fixtures/local_libs/adapters/invalid_adapter.py"
+    description: "An invalid test plugin"
