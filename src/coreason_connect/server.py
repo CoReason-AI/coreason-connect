@@ -48,7 +48,7 @@ class CoreasonConnectServer(Server):
         # Register handlers
         # Using type: ignore because mcp.server.Server decorators are not typed in a way mypy likes
         self.list_tools()(self._list_tools_handler)  # type: ignore[no-untyped-call]
-        self.call_tool()(self._call_tool_handler)  # type: ignore[no-untyped-call]
+        self.call_tool()(self._call_tool_handler)
 
         logger.info(
             f"Initialized {name} v{version} with {len(self.plugins)} plugins and {len(self.tool_registry)} tools"
