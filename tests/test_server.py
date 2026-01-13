@@ -18,7 +18,10 @@ from mcp.types import Tool
 
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
 from coreason_connect.server import CoreasonConnectServer
-from tests.fixtures.mock_plugin import MockPlugin
+
+# Use relative import for the fixture to avoid ModuleNotFoundError in CI environment
+# where 'tests' package might not be in the python path
+from .fixtures.mock_plugin import MockPlugin
 
 
 @pytest.fixture  # type: ignore[misc]
