@@ -168,6 +168,27 @@ def test_load_plugins_duplicate_tool_warning(
         assert "Duplicate tool name 'mock_echo' found in plugin 'p2'" in str(mock_logger.warning.call_args)
 
 
+def test_load_plugins_get_tools_error(
+    server: CoreasonConnectServer,
+    mock_plugin: MockPlugin,
+) -> None:
+    """Test that an error is logged when get_tools fails during loading."""
+    # Mock plugin raises error on get_tools
+    mock_plugin.get_tools = MagicMock(side_effect=Exception("Initialization error"))  # type: ignore[method-assign]
+
+    # Mock the loader to return the broken plugin
+    server.plugin_loader.load_all = MagicMock(  # type: ignore[method-assign]
+        return_value={"broken-plugin": mock_plugin}
+    )
+
+    with patch("coreason_connect.server.logger") as mock_logger:
+        server._load_plugins()
+        mock_logger.error.assert_called()
+        assert "Failed to get tools from plugin 'broken-plugin': Initialization error" in str(
+            mock_logger.error.call_args
+        )
+
+
 @pytest.mark.asyncio  # type: ignore[misc]
 async def test_list_tools_handler_plugin_error(
     server: CoreasonConnectServer,
