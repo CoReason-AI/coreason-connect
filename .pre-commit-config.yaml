@@ -22,6 +22,7 @@ repos:
           - mcp>=1.25.0
           - types-PyYAML>=6.0.12
           - pydantic>=2.12.5
+          - pytest>=8.2.2
   - repo: https://github.com/AleksaC/hadolint-py
     rev: v2.14.0
     hooks:

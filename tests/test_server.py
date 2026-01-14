@@ -18,13 +18,14 @@ from mcp.types import Tool
 
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
 from coreason_connect.server import CoreasonConnectServer
+from coreason_connect.types import ToolExecutionError
 
 # Use relative import for the fixture to avoid ModuleNotFoundError in CI environment
 # where 'tests' package might not be in the python path
 from .fixtures.mock_plugin import MockPlugin
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def mock_secrets() -> SecretsProvider:
     """Fixture for a mock secrets provider."""
     secrets = MagicMock(spec=SecretsProvider)
@@ -33,13 +34,13 @@ def mock_secrets() -> SecretsProvider:
     return secrets
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def mock_plugin(mock_secrets: SecretsProvider) -> MockPlugin:
     """Fixture for a mock plugin."""
     return MockPlugin(mock_secrets)
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def server(mock_secrets: SecretsProvider) -> CoreasonConnectServer:
     """Fixture for the MCP server."""
     return CoreasonConnectServer(secrets=mock_secrets)
@@ -54,7 +55,7 @@ def test_server_initialization(server: CoreasonConnectServer) -> None:
     assert server.plugin_loader is not None
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_list_tools_handler_empty(server: CoreasonConnectServer) -> None:
     """Test listing tools when no plugins are loaded."""
     # Ensure no plugins are loaded
@@ -63,7 +64,7 @@ async def test_list_tools_handler_empty(server: CoreasonConnectServer) -> None:
     assert tools == []
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_list_tools_handler_with_plugins(server: CoreasonConnectServer, mock_plugin: MockPlugin) -> None:
     """Test listing tools with loaded plugins."""
     # Manually inject a plugin
@@ -78,7 +79,7 @@ async def test_list_tools_handler_with_plugins(server: CoreasonConnectServer, mo
     assert tools[0].description == "Echoes the input."
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_call_tool_handler_success(server: CoreasonConnectServer, mock_plugin: MockPlugin) -> None:
     """Test calling a tool successfully."""
     # Manually inject a plugin and register it
@@ -101,29 +102,53 @@ async def test_call_tool_handler_success(server: CoreasonConnectServer, mock_plu
     assert text_content.text == "Echo: Hello MCP"
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
-async def test_call_tool_handler_execution_error(server: CoreasonConnectServer, mock_plugin: MockPlugin) -> None:
-    """Test calling a tool that raises an error during execution."""
-    # Manually inject a plugin and register it
+@pytest.mark.asyncio
+async def test_call_tool_handler_tool_execution_error(server: CoreasonConnectServer, mock_plugin: MockPlugin) -> None:
+    """Test calling a tool that raises a ToolExecutionError."""
     server.plugins = {"mock-plugin": mock_plugin}
     server.tool_registry["mock_echo"] = mock_plugin
 
-    # Mock the plugin to raise an exception
-    mock_plugin.execute = MagicMock(side_effect=Exception("Execution failed"))  # type: ignore[method-assign]
+    # Mock the plugin to raise a ToolExecutionError
+    error = ToolExecutionError("Custom error message", retryable=True)
+    mock_plugin.execute = MagicMock(side_effect=error)  # type: ignore[method-assign]
 
     with patch("coreason_connect.server.logger") as mock_logger:
-        result = await server._call_tool_handler("mock_echo", {"message": "fail"})
+        result = await server._call_tool_handler("mock_echo", {})
         assert len(result) == 1
         text = result[0].text  # type: ignore[union-attr]
-        assert "Error executing tool" in text
-        assert "Execution failed" in text
 
-        # Verify logger was called
+        # Should be formatted nicely
+        assert text == "Error: Tool 'mock_echo' failed - Custom error message"
+
+        # Should be logged as warning, not error
+        mock_logger.warning.assert_called()
+        assert "Tool 'mock_echo' execution failed (retryable=True)" in str(mock_logger.warning.call_args)
+        mock_logger.error.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_call_tool_handler_generic_error(server: CoreasonConnectServer, mock_plugin: MockPlugin) -> None:
+    """Test calling a tool that raises a generic Exception."""
+    server.plugins = {"mock-plugin": mock_plugin}
+    server.tool_registry["mock_echo"] = mock_plugin
+
+    # Mock the plugin to raise a generic exception
+    mock_plugin.execute = MagicMock(side_effect=ValueError("Unexpected crash"))  # type: ignore[method-assign]
+
+    with patch("coreason_connect.server.logger") as mock_logger:
+        result = await server._call_tool_handler("mock_echo", {})
+        assert len(result) == 1
+        text = result[0].text  # type: ignore[union-attr]
+
+        # Should be sanitized
+        assert "Error executing tool: Unexpected crash" in text
+
+        # Should be logged as error
         mock_logger.error.assert_called()
-        assert "Error executing tool 'mock_echo': Execution failed" in str(mock_logger.error.call_args)
+        assert "Error executing tool 'mock_echo': Unexpected crash" in str(mock_logger.error.call_args)
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_call_tool_handler_unknown_tool(server: CoreasonConnectServer) -> None:
     """Test calling a tool that does not exist."""
     result = await server._call_tool_handler("unknown_tool", {})
@@ -189,7 +214,7 @@ def test_load_plugins_get_tools_error(
         )
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_list_tools_handler_plugin_error(
     server: CoreasonConnectServer,
     mock_plugin: MockPlugin,
@@ -206,7 +231,7 @@ async def test_list_tools_handler_plugin_error(
         assert "Error listing tools for plugin 'mock-plugin': Plugin error" in str(mock_logger.error.call_args)
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_stateful_plugin_execution(server: CoreasonConnectServer, mock_secrets: SecretsProvider) -> None:
     """Test that plugins maintain state across calls."""
 
@@ -242,7 +267,7 @@ async def test_stateful_plugin_execution(server: CoreasonConnectServer, mock_sec
     assert text2 == "2"
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_complex_return_types(server: CoreasonConnectServer, mock_plugin: MockPlugin) -> None:
     """Test that the server handles different return types from plugins."""
 
@@ -266,7 +291,7 @@ async def test_complex_return_types(server: CoreasonConnectServer, mock_plugin: 
     assert text == "CustomString"
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_complex_arguments(server: CoreasonConnectServer, mock_plugin: MockPlugin) -> None:
     """Test passing complex arguments to tools."""
     server.plugins = {"mock": mock_plugin}
