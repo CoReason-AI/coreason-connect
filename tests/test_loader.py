@@ -29,17 +29,17 @@ class MockSecrets(SecretsProvider):
         return {"user": "test"}
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def mock_secrets() -> SecretsProvider:
     return MockSecrets()
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def fixtures_dir() -> str:
     return os.path.join(os.path.dirname(__file__), "fixtures")
 
 
-@pytest.fixture  # type: ignore[misc]
+@pytest.fixture
 def config_path(fixtures_dir: str) -> str:
     return os.path.join(fixtures_dir, "connectors.yaml")
 

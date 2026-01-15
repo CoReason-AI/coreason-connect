@@ -18,7 +18,7 @@ from coreason_connect.secrets import EnvSecretsProvider
 
 
 class TestEnvSecretsProvider:
-    @pytest.fixture  # type: ignore[misc]
+    @pytest.fixture
     def provider(self) -> EnvSecretsProvider:
         return EnvSecretsProvider()
 
