@@ -18,6 +18,7 @@ from coreason_connect.config import AppConfig
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
 from coreason_connect.loader import PluginLoader
 from coreason_connect.secrets import EnvSecretsProvider
+from coreason_connect.types import ToolExecutionError
 from coreason_connect.utils.logger import logger
 
 
@@ -92,6 +93,9 @@ class CoreasonConnectServer(Server):
             else:
                 result_str = str(result)
             return [types.TextContent(type="text", text=result_str)]
+        except ToolExecutionError as e:
+            logger.warning(f"Tool '{name}' execution failed (retryable={e.retryable}): {e}")
+            return [types.TextContent(type="text", text=f"Error: Tool '{name}' failed - {e.message}")]
         except Exception as e:
             logger.error(f"Error executing tool '{name}': {e}")
             return [types.TextContent(type="text", text=f"Error executing tool: {str(e)}")]
