@@ -15,6 +15,7 @@ import pytest
 from mcp.types import Tool
 
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
+from coreason_connect.types import ToolDefinition
 
 
 class MockSecretsProvider:
@@ -30,12 +31,15 @@ class MockSecretsProvider:
 class ConcreteConnector(ConnectorProtocol):
     """Concrete implementation of ConnectorProtocol."""
 
-    def get_tools(self) -> list[Tool]:
+    def get_tools(self) -> list[ToolDefinition]:
         return [
-            Tool(
+            ToolDefinition(
                 name="test_tool",
-                description="A test tool",
-                inputSchema={"type": "object", "properties": {}},
+                tool=Tool(
+                    name="test_tool",
+                    description="A test tool",
+                    inputSchema={"type": "object", "properties": {}},
+                ),
             )
         ]
 
@@ -78,7 +82,7 @@ def test_concrete_connector_methods() -> None:
 
     tools = connector.get_tools()
     assert len(tools) == 1
-    assert isinstance(tools[0], Tool)
+    assert isinstance(tools[0], ToolDefinition)
     assert tools[0].name == "test_tool"
 
     result = connector.execute("test_tool", {"foo": "bar"})
@@ -111,12 +115,17 @@ def test_complex_connector_scenario() -> None:
     """Test a connector that uses secrets to determine available tools."""
 
     class DynamicConnector(ConnectorProtocol):
-        def get_tools(self) -> list[Tool]:
+        def get_tools(self) -> list[ToolDefinition]:
             # Simulate checking a license key from secrets
             license_key = self.secrets.get_secret("LICENSE_KEY")
             tools = []
             if license_key == "secret_for_LICENSE_KEY":
-                tools.append(Tool(name="premium_tool", inputSchema={}, description="Premium"))
+                tools.append(
+                    ToolDefinition(
+                        name="premium_tool",
+                        tool=Tool(name="premium_tool", inputSchema={}, description="Premium"),
+                    )
+                )
             return tools
 
         def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
@@ -158,7 +167,7 @@ def test_connector_inheritance_chain() -> None:
             pass
 
     class FinalConnector(BaseFeatureConnector):
-        def get_tools(self) -> list[Tool]:
+        def get_tools(self) -> list[ToolDefinition]:
             return []
 
         def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:

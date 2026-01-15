@@ -8,6 +8,9 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
+from mcp.types import Tool
+from pydantic import BaseModel
+
 
 class ToolExecutionError(Exception):
     """
@@ -25,3 +28,18 @@ class ToolExecutionError(Exception):
 
     def __str__(self) -> str:
         return self.message
+
+
+class ToolDefinition(BaseModel):
+    """
+    Internal definition of a tool, including its MCP specification and operational flags.
+
+    Attributes:
+        name: The name of the tool (must match tool.name).
+        tool: The MCP Tool object.
+        is_consequential: If True, requires human approval before execution.
+    """
+
+    name: str
+    tool: Tool
+    is_consequential: bool = False
