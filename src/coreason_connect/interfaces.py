@@ -11,7 +11,9 @@
 from abc import ABC, abstractmethod
 from typing import Any, Protocol, runtime_checkable
 
-from mcp.types import Tool
+from mcp.types import Tool  # noqa: F401
+
+from coreason_connect.types import ToolDefinition
 
 
 @runtime_checkable
@@ -35,8 +37,8 @@ class ConnectorProtocol(ABC):
         self.secrets = secrets
 
     @abstractmethod
-    def get_tools(self) -> list[Tool]:
-        """Return list of available MCP tools."""
+    def get_tools(self) -> list[ToolDefinition]:
+        """Return list of available MCP tools wrapped in ToolDefinition."""
         pass  # pragma: no cover
 
     @abstractmethod
