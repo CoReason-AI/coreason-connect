@@ -18,7 +18,7 @@ from coreason_connect.config import AppConfig
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
 from coreason_connect.loader import PluginLoader
 from coreason_connect.secrets import EnvSecretsProvider
-from coreason_connect.types import ToolExecutionError
+from coreason_connect.types import ToolDefinition, ToolExecutionError
 from coreason_connect.utils.logger import logger
 
 
@@ -42,6 +42,7 @@ class CoreasonConnectServer(Server):
         self.plugin_loader = PluginLoader(self.config, self.secrets)
         self.plugins: dict[str, ConnectorProtocol] = {}
         self.tool_registry: dict[str, ConnectorProtocol] = {}
+        self.tool_definitions: dict[str, ToolDefinition] = {}
 
         # Load plugins
         self._load_plugins()
@@ -61,30 +62,35 @@ class CoreasonConnectServer(Server):
         for plugin_id, plugin in self.plugins.items():
             try:
                 tools = plugin.get_tools()
-                for tool in tools:
-                    if tool.name in self.tool_registry:
-                        logger.warning(f"Duplicate tool name '{tool.name}' found in plugin '{plugin_id}'. Overwriting.")
-                    self.tool_registry[tool.name] = plugin
+                for tool_def in tools:
+                    if tool_def.name in self.tool_registry:
+                        logger.warning(
+                            f"Duplicate tool name '{tool_def.name}' found in plugin '{plugin_id}'. Overwriting."
+                        )
+                    self.tool_registry[tool_def.name] = plugin
+                    self.tool_definitions[tool_def.name] = tool_def
             except Exception as e:
                 logger.error(f"Failed to get tools from plugin '{plugin_id}': {e}")
 
     async def _list_tools_handler(self) -> list[types.Tool]:
         """Handler for listing tools."""
-        all_tools: list[types.Tool] = []
-        for plugin_id, plugin in self.plugins.items():
-            try:
-                all_tools.extend(plugin.get_tools())
-            except Exception as e:
-                logger.error(f"Error listing tools for plugin '{plugin_id}': {e}")
-        return all_tools
+        return [tool_def.tool for tool_def in self.tool_definitions.values()]
 
     async def _call_tool_handler(
         self, name: str, arguments: dict[str, Any]
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
         """Handler for calling tools."""
         plugin = self.tool_registry.get(name)
-        if not plugin:
+        tool_def = self.tool_definitions.get(name)
+
+        if not plugin or not tool_def:
             return [types.TextContent(type="text", text=f"Error: Tool '{name}' not found.")]
+
+        # Spend Gate / Transactional Safety Check
+        if tool_def.is_consequential:
+            msg = f"Action suspended: Human approval required for {name}."
+            logger.info(f"Tool execution suspended for approval: {name}")
+            return [types.TextContent(type="text", text=msg)]
 
         try:
             result = plugin.execute(name, arguments)

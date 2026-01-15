@@ -3,6 +3,7 @@ from typing import Any
 from mcp.types import Tool
 
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
+from coreason_connect.types import ToolDefinition
 
 
 class MockPlugin(ConnectorProtocol):
@@ -11,16 +12,20 @@ class MockPlugin(ConnectorProtocol):
     def __init__(self, secrets: SecretsProvider) -> None:
         super().__init__(secrets)
 
-    def get_tools(self) -> list[Tool]:
+    def get_tools(self) -> list[ToolDefinition]:
         return [
-            Tool(
+            ToolDefinition(
                 name="mock_echo",
-                description="Echoes the input.",
-                inputSchema={
-                    "type": "object",
-                    "properties": {"message": {"type": "string"}},
-                    "required": ["message"],
-                },
+                tool=Tool(
+                    name="mock_echo",
+                    description="Echoes the input.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {"message": {"type": "string"}},
+                        "required": ["message"],
+                    },
+                ),
+                is_consequential=False,
             )
         ]
 
