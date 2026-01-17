@@ -36,7 +36,19 @@ class MockPlugin(ConnectorProtocol):
                     },
                 ),
                 is_consequential=False,
-            )
+            ),
+            ToolDefinition(
+                name="mock_dangerous",
+                tool=Tool(
+                    name="mock_dangerous",
+                    description="A dangerous tool.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {},
+                    },
+                ),
+                is_consequential=True,
+            ),
         ]
 
     def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
@@ -44,4 +56,6 @@ class MockPlugin(ConnectorProtocol):
             if not arguments or "message" not in arguments:
                 raise ValueError("Missing 'message' argument")
             return f"Echo: {arguments['message']}"
+        if tool_name == "mock_dangerous":
+            return "DANGEROUS EXECUTION"
         raise ValueError(f"Unknown tool: {tool_name}")
