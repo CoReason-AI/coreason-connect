@@ -236,6 +236,128 @@ plugins:
     assert len(plugins) == 1
 
 
+def test_load_native_plugin(mock_secrets: SecretsProvider, tmp_path: Path) -> None:
+    """Test loading a native plugin."""
+    config_file = tmp_path / "native.yaml"
+    config_file.write_text("""
+plugins:
+  - id: "test-native"
+    type: "native"
+""")
+
+    config = load_config(str(config_file))
+    loader = PluginLoader(config, mock_secrets)
+
+    # We need to mock importlib.import_module to return a dummy module
+    # containing a valid ConnectorProtocol implementation
+    from coreason_connect.interfaces import ConnectorProtocol, ToolDefinition
+
+    class MockNativePlugin(ConnectorProtocol):
+        def get_tools(self) -> list[ToolDefinition]:
+            return []
+
+        def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+            return "executed"
+
+    mock_module = Mock()
+    mock_module.MockNativePlugin = MockNativePlugin
+
+    with patch("importlib.import_module", return_value=mock_module) as mock_import:
+        plugins = loader.load_all()
+
+        mock_import.assert_called_with("coreason_connect.plugins.test_native")
+        assert "test-native" in plugins
+        assert isinstance(plugins["test-native"], MockNativePlugin)
+
+
+def test_native_plugin_not_found(mock_secrets: SecretsProvider, tmp_path: Path) -> None:
+    """Test failure when native plugin module is missing."""
+    config_file = tmp_path / "native_missing.yaml"
+    config_file.write_text("""
+plugins:
+  - id: "missing-native"
+    type: "native"
+""")
+
+    config = load_config(str(config_file))
+    loader = PluginLoader(config, mock_secrets)
+
+    with patch("importlib.import_module", side_effect=ImportError("Not found")):
+        plugins = loader.load_all()
+        assert "missing-native" not in plugins
+
+
+def test_native_plugin_runtime_error(mock_secrets: SecretsProvider, tmp_path: Path) -> None:
+    """Test resilience when a native plugin crashes during import."""
+    config_file = tmp_path / "native_crash.yaml"
+    config_file.write_text("""
+plugins:
+  - id: "crash-native"
+    type: "native"
+""")
+
+    config = load_config(str(config_file))
+    loader = PluginLoader(config, mock_secrets)
+
+    with patch("importlib.import_module", side_effect=RuntimeError("Module crashed")):
+        plugins = loader.load_all()
+        assert "crash-native" not in plugins
+
+
+def test_native_plugin_no_connector(mock_secrets: SecretsProvider, tmp_path: Path) -> None:
+    """Test failure when native plugin module has no ConnectorProtocol."""
+    config_file = tmp_path / "native_empty.yaml"
+    config_file.write_text("""
+plugins:
+  - id: "empty-native"
+    type: "native"
+""")
+
+    config = load_config(str(config_file))
+    loader = PluginLoader(config, mock_secrets)
+
+    # Mock module with no classes
+    mock_module = Mock()
+    # Ensure inspect.getmembers returns nothing useful
+    mock_module.SomeClass = type("SomeClass", (), {})
+
+    with patch("importlib.import_module", return_value=mock_module):
+        plugins = loader.load_all()
+        assert "empty-native" not in plugins
+
+
+def test_native_plugin_normalization(mock_secrets: SecretsProvider, tmp_path: Path) -> None:
+    """Test that plugin ID normalization works correctly."""
+    config_file = tmp_path / "native_norm.yaml"
+    config_file.write_text("""
+plugins:
+  - id: "my-cool-plugin"
+    type: "native"
+""")
+
+    config = load_config(str(config_file))
+    loader = PluginLoader(config, mock_secrets)
+
+    from coreason_connect.interfaces import ConnectorProtocol, ToolDefinition
+
+    class MockPlugin(ConnectorProtocol):
+        def get_tools(self) -> list[ToolDefinition]:
+            return []
+
+        def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+            return "ok"
+
+    mock_module = Mock()
+    mock_module.Plugin = MockPlugin
+
+    with patch("importlib.import_module", return_value=mock_module) as mock_import:
+        plugins = loader.load_all()
+
+        # The key check: ensure it tried to import 'coreason_connect.plugins.my_cool_plugin'
+        mock_import.assert_called_with("coreason_connect.plugins.my_cool_plugin")
+        assert "my-cool-plugin" in plugins
+
+
 def test_isolation_class_names(mock_secrets: SecretsProvider, tmp_path: Path, fixtures_dir: str) -> None:
     """Test loading two plugins with the same class name but different IDs."""
 

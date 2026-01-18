@@ -15,6 +15,8 @@ from mcp.types import Tool  # noqa: F401
 
 from coreason_connect.types import ToolDefinition
 
+__all__ = ["SecretsProvider", "ConnectorProtocol", "ToolDefinition"]
+
 
 @runtime_checkable
 class SecretsProvider(Protocol):
