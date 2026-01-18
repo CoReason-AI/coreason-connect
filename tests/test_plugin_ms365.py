@@ -11,6 +11,8 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from httpx import HTTPStatusError, Request, Response
+
 from coreason_connect.interfaces import SecretsProvider
 from coreason_connect.plugins.ms365 import MS365Connector
 from coreason_connect.types import ToolExecutionError
@@ -35,10 +37,7 @@ def connector(mock_secrets: SecretsProvider, mock_graph_client: MagicMock) -> MS
 
 
 def test_init_failure(mock_secrets: SecretsProvider) -> None:
-    with patch(
-        "coreason_connect.plugins.ms365.GraphClientFactory.create_with_default_middleware",
-        side_effect=Exception("Init Failed"),
-    ):
+    with patch("coreason_connect.plugins.ms365.GraphClientFactory.create_with_default_middleware", side_effect=Exception("Init Failed")):
         with pytest.raises(Exception, match="Init Failed"):
             MS365Connector(mock_secrets)
 
@@ -61,7 +60,9 @@ def test_find_meeting_slot(connector: MS365Connector, mock_graph_client: MagicMo
     mock_response.json.return_value = {"meetingTimeSlots": []}
     mock_graph_client.post.return_value = mock_response
 
-    result = connector.execute("find_meeting_slot", {"attendees": ["test@example.com"], "duration": "PT1H"})
+    result = connector.execute(
+        "find_meeting_slot", {"attendees": ["test@example.com"], "duration": "PT1H"}
+    )
 
     assert result == {"meetingTimeSlots": []}
     mock_graph_client.post.assert_called_once()
@@ -75,7 +76,9 @@ def test_draft_email(connector: MS365Connector, mock_graph_client: MagicMock) ->
     mock_response.json.return_value = {"id": "123", "subject": "Test"}
     mock_graph_client.post.return_value = mock_response
 
-    result = connector.execute("draft_email", {"to": "test@example.com", "subject": "Test", "body": "Hello"})
+    result = connector.execute(
+        "draft_email", {"to": "test@example.com", "subject": "Test", "body": "Hello"}
+    )
 
     assert result == {"id": "123", "subject": "Test"}
     mock_graph_client.post.assert_called_once()
@@ -111,3 +114,83 @@ def test_execute_failure(connector: MS365Connector, mock_graph_client: MagicMock
 
     with pytest.raises(ToolExecutionError, match="MS365 error: API Error"):
         connector.execute("send_email", {"id": "123"})
+
+
+# --- Edge Case Tests ---
+
+def test_find_meeting_slot_empty_attendees(connector: MS365Connector, mock_graph_client: MagicMock) -> None:
+    """Test finding meeting slot with no attendees."""
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"meetingTimeSlots": []}
+    mock_graph_client.post.return_value = mock_response
+
+    result = connector.execute("find_meeting_slot", {"attendees": [], "duration": "PT30M"})
+
+    assert result == {"meetingTimeSlots": []}
+    args, kwargs = mock_graph_client.post.call_args
+    assert kwargs["json"]["attendees"] == []
+
+
+def test_api_http_error(connector: MS365Connector, mock_graph_client: MagicMock) -> None:
+    """Test handling of HTTP error codes."""
+    # Simulate a 401 Unauthorized
+    request = Request("POST", "https://graph.microsoft.com/v1.0/me/messages")
+    response = Response(401, request=request, text="Unauthorized")
+    error = HTTPStatusError("401 Unauthorized", request=request, response=response)
+
+    # We must mock raise_for_status to raise this error,
+    # OR mock the side_effect of the post call if the client raises it immediately.
+    # The current implementation calls raise_for_status() on the returned response object.
+
+    mock_response_obj = MagicMock()
+    mock_response_obj.raise_for_status.side_effect = error
+    mock_graph_client.post.return_value = mock_response_obj
+
+    with pytest.raises(ToolExecutionError, match="MS365 error: 401 Unauthorized"):
+        connector.execute("send_email", {"id": "123"})
+
+
+def test_api_malformed_response(connector: MS365Connector, mock_graph_client: MagicMock) -> None:
+    """Test when API returns invalid JSON."""
+    mock_response = MagicMock()
+    # json() raising ValueError simulates malformed JSON body
+    mock_response.json.side_effect = ValueError("Expecting value")
+    mock_graph_client.post.return_value = mock_response
+
+    with pytest.raises(ToolExecutionError, match="MS365 error: Expecting value"):
+        connector.execute("draft_email", {"to": "a", "subject": "b", "body": "c"})
+
+
+def test_complex_scenario_chain(connector: MS365Connector, mock_graph_client: MagicMock) -> None:
+    """
+    Simulate a chain: find slot -> draft email -> send email.
+    Note: In unit tests we mock the state, but we can verify the sequence of calls.
+    """
+    # 1. Find Slot
+    mock_response_slot = MagicMock()
+    mock_response_slot.json.return_value = {"meetingTimeSlots": [{"start": "..."}]}
+
+    # 2. Draft Email
+    mock_response_draft = MagicMock()
+    mock_response_draft.json.return_value = {"id": "draft_123"}
+
+    # 3. Send Email
+    mock_response_send = MagicMock()
+
+    mock_graph_client.post.side_effect = [
+        mock_response_slot,
+        mock_response_draft,
+        mock_response_send
+    ]
+
+    # Execute Chain
+    slot_res = connector.execute("find_meeting_slot", {"attendees": ["a@b.com"], "duration": "PT1H"})
+    assert slot_res["meetingTimeSlots"]
+
+    draft_res = connector.execute("draft_email", {"to": "a@b.com", "subject": "Meeting", "body": "Let's meet"})
+    assert draft_res["id"] == "draft_123"
+
+    send_res = connector.execute("send_email", {"id": draft_res["id"]})
+    assert send_res["status"] == "sent"
+
+    assert mock_graph_client.post.call_count == 3
