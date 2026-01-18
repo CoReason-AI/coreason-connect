@@ -13,7 +13,6 @@ import sys
 from unittest import mock
 
 import pytest
-
 from coreason_connect.secrets import EnvSecretsProvider
 
 

@@ -12,7 +12,6 @@ import json
 import os
 
 import pytest
-
 from coreason_connect.config import AppConfig, PluginConfig
 from coreason_connect.secrets import EnvSecretsProvider
 from coreason_connect.server import CoreasonConnectServer
