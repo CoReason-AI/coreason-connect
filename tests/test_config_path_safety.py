@@ -1,3 +1,13 @@
+# Copyright (c) 2025 CoReason, Inc.
+#
+# This software is proprietary and dual-licensed.
+# Licensed under the Prosperity Public License 3.0 (the "License").
+# A copy of the license is available at https://prosperitylicense.com/versions/3.0.0
+# For details, see the LICENSE file.
+# Commercial use beyond a 30-day trial requires a separate license.
+#
+# Source Code: https://github.com/CoReason-AI/coreason_connect
+
 import os
 from pathlib import Path
 from typing import Any
@@ -9,9 +19,7 @@ import yaml
 from coreason_connect.config import load_config
 
 # We assume the "Safe Zone" is the project root, which we can approximate by os.getcwd()
-# during tests, or specifically the directory where the config file resides?
-# The spec says "Verifies plugin path is inside the allowed 'Safe Zone'".
-# Usually this means the directory where the application is running or the config file directory.
+# during tests, or specifically the directory where the application is running or the config file directory.
 # We will enforce it relative to os.getcwd() for now.
 
 

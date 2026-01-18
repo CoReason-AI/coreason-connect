@@ -41,8 +41,8 @@ class CoreasonConnectServer(Server):
 
         self.plugin_loader = PluginLoader(self.config, self.secrets)
         self.plugins: dict[str, ConnectorProtocol] = {}
-        self.tool_registry: dict[str, ConnectorProtocol] = {}
-        self.tool_definitions: dict[str, ToolDefinition] = {}
+        self.plugin_registry: dict[str, ConnectorProtocol] = {}
+        self.tool_registry: dict[str, ToolDefinition] = {}
 
         # Load plugins
         self._load_plugins()
@@ -67,21 +67,21 @@ class CoreasonConnectServer(Server):
                         logger.warning(
                             f"Duplicate tool name '{tool_def.name}' found in plugin '{plugin_id}'. Overwriting."
                         )
-                    self.tool_registry[tool_def.name] = plugin
-                    self.tool_definitions[tool_def.name] = tool_def
+                    self.plugin_registry[tool_def.name] = plugin
+                    self.tool_registry[tool_def.name] = tool_def
             except Exception as e:
                 logger.error(f"Failed to get tools from plugin '{plugin_id}': {e}")
 
     async def _list_tools_handler(self) -> list[types.Tool]:
         """Handler for listing tools."""
-        return [tool_def.tool for tool_def in self.tool_definitions.values()]
+        return [tool_def.tool for tool_def in self.tool_registry.values()]
 
     async def _call_tool_handler(
         self, name: str, arguments: dict[str, Any]
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
         """Handler for calling tools."""
-        plugin = self.tool_registry.get(name)
-        tool_def = self.tool_definitions.get(name)
+        plugin = self.plugin_registry.get(name)
+        tool_def = self.tool_registry.get(name)
 
         if not plugin or not tool_def:
             return [types.TextContent(type="text", text=f"Error: Tool '{name}' not found.")]
