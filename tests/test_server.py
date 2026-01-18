@@ -57,12 +57,13 @@ async def test_list_tools_handler_with_plugins(server: CoreasonConnectServer, mo
     server.plugins = {"mock-plugin": mock_plugin}
     # Manually populate registry for test isolation (normally done by _load_plugins)
     for tool_def in mock_plugin.get_tools():
-        server.tool_registry[tool_def.name] = mock_plugin
-        server.tool_definitions[tool_def.name] = tool_def
+        server.plugin_registry[tool_def.name] = mock_plugin
+        server.tool_registry[tool_def.name] = tool_def
 
     tools = await server._list_tools_handler()
-    assert len(tools) == 1
-    assert tools[0].name == "mock_echo"
+    assert len(tools) == 2  # mock_echo and mock_dangerous
+    names = sorted([t.name for t in tools])
+    assert names == ["mock_dangerous", "mock_echo"]
 
 
 @pytest.mark.asyncio
@@ -70,8 +71,8 @@ async def test_call_tool_handler_success(server: CoreasonConnectServer, mock_plu
     """Test calling a tool successfully."""
     server.plugins = {"mock-plugin": mock_plugin}
     for tool_def in mock_plugin.get_tools():
-        server.tool_registry[tool_def.name] = mock_plugin
-        server.tool_definitions[tool_def.name] = tool_def
+        server.plugin_registry[tool_def.name] = mock_plugin
+        server.tool_registry[tool_def.name] = tool_def
 
     result = await server._call_tool_handler("mock_echo", {"message": "Hello"})
     assert len(result) == 1
@@ -97,8 +98,8 @@ async def test_call_tool_handler_tool_execution_error(server: CoreasonConnectSer
     mock_plugin.execute = MagicMock(side_effect=ToolExecutionError("Custom error"))  # type: ignore[method-assign]
     server.plugins = {"mock-plugin": mock_plugin}
     for tool_def in mock_plugin.get_tools():
-        server.tool_registry[tool_def.name] = mock_plugin
-        server.tool_definitions[tool_def.name] = tool_def
+        server.plugin_registry[tool_def.name] = mock_plugin
+        server.tool_registry[tool_def.name] = tool_def
 
     with patch("coreason_connect.server.logger") as mock_logger:
         result = await server._call_tool_handler("mock_echo", {})
@@ -116,8 +117,8 @@ async def test_call_tool_handler_generic_error(server: CoreasonConnectServer, mo
     mock_plugin.execute = MagicMock(side_effect=Exception("Unexpected crash"))  # type: ignore[method-assign]
     server.plugins = {"mock-plugin": mock_plugin}
     for tool_def in mock_plugin.get_tools():
-        server.tool_registry[tool_def.name] = mock_plugin
-        server.tool_definitions[tool_def.name] = tool_def
+        server.plugin_registry[tool_def.name] = mock_plugin
+        server.tool_registry[tool_def.name] = tool_def
 
     with patch("coreason_connect.server.logger"):  # Remove unused variable assignment
         result = await server._call_tool_handler("mock_echo", {})
@@ -170,7 +171,7 @@ async def test_load_plugins_individual_failure(
         mock_logger.error.assert_any_call("Failed to get tools from plugin 'bad': Plugin error")
 
         # good plugin registered
-        assert "mock_echo" in server.tool_registry
+        assert "mock_echo" in server.plugin_registry
 
 
 @pytest.mark.asyncio
@@ -202,9 +203,9 @@ async def test_stateful_plugin_execution(server: CoreasonConnectServer, mock_sec
 
     plugin = StatefulPlugin(mock_secrets)
     server.plugins = {"stateful": plugin}
-    server.tool_registry["increment"] = plugin
+    server.plugin_registry["increment"] = plugin
     for tool_def in plugin.get_tools():
-        server.tool_definitions[tool_def.name] = tool_def
+        server.tool_registry[tool_def.name] = tool_def
 
     result1 = await server._call_tool_handler("increment", {})
     text1 = result1[0].text  # type: ignore[union-attr]
@@ -223,8 +224,8 @@ async def test_complex_return_types(server: CoreasonConnectServer, mock_plugin: 
     mock_plugin.execute = MagicMock(return_value=None)  # type: ignore[method-assign]
     server.plugins = {"mock": mock_plugin}
     for tool_def in mock_plugin.get_tools():
-        server.tool_registry[tool_def.name] = mock_plugin
-        server.tool_definitions[tool_def.name] = tool_def
+        server.plugin_registry[tool_def.name] = mock_plugin
+        server.tool_registry[tool_def.name] = tool_def
 
     result = await server._call_tool_handler("mock_echo", {})
     text = result[0].text  # type: ignore[union-attr]
@@ -242,8 +243,8 @@ async def test_complex_arguments(server: CoreasonConnectServer, mock_plugin: Moc
     """Test passing complex arguments to tools."""
     server.plugins = {"mock": mock_plugin}
     for tool_def in mock_plugin.get_tools():
-        server.tool_registry[tool_def.name] = mock_plugin
-        server.tool_definitions[tool_def.name] = tool_def
+        server.plugin_registry[tool_def.name] = mock_plugin
+        server.tool_registry[tool_def.name] = tool_def
 
     complex_args = {"nested": {"a": 1, "b": [1, 2]}, "list": [{"id": 1}]}
 
@@ -254,3 +255,21 @@ async def test_complex_arguments(server: CoreasonConnectServer, mock_plugin: Moc
     text = result[0].text  # type: ignore[union-attr]
     loaded = json.loads(text)
     assert loaded == complex_args
+
+
+@pytest.mark.asyncio
+async def test_spend_gate_interception_via_mock_plugin(server: CoreasonConnectServer, mock_plugin: MockPlugin) -> None:
+    """Test that the mock_dangerous tool is intercepted by the spend gate."""
+    # Setup
+    server.plugins = {"mock-plugin": mock_plugin}
+    for tool_def in mock_plugin.get_tools():
+        server.plugin_registry[tool_def.name] = mock_plugin
+        server.tool_registry[tool_def.name] = tool_def
+
+    # Execute
+    result = await server._call_tool_handler("mock_dangerous", {})
+
+    # Verify
+    assert len(result) == 1
+    assert result[0].type == "text"
+    assert "Action suspended: Human approval required for mock_dangerous." in result[0].text

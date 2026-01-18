@@ -26,8 +26,8 @@ async def test_spend_gate_interception() -> None:
 
     # Register tools manually as _load_plugins is already called in __init__
     for tool_def in mock_plugin.get_tools():
-        server.tool_registry[tool_def.name] = mock_plugin
-        server.tool_definitions[tool_def.name] = tool_def
+        server.plugin_registry[tool_def.name] = mock_plugin
+        server.tool_registry[tool_def.name] = tool_def
 
     # Test consequential tool
     result = await server._call_tool_handler("nuclear_launch", {})

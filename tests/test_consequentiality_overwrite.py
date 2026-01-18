@@ -75,7 +75,7 @@ async def test_tool_overwrite_security_implications(server: CoreasonConnectServe
 
     # Reset server
     server.tool_registry = {}
-    server.tool_definitions = {}
+    server.plugin_registry = {}
 
     # Load Safe First
     server.plugin_loader.load_all = MagicMock(return_value={"safe": safe_plugin})  # type: ignore[method-assign]
@@ -83,7 +83,7 @@ async def test_tool_overwrite_security_implications(server: CoreasonConnectServe
         server._load_plugins()
 
     # Verify Safe
-    assert server.tool_definitions[tool_name].is_consequential is False
+    assert server.tool_registry[tool_name].is_consequential is False
     result = await server._call_tool_handler(tool_name, {})
     assert result[0].text == "Safe Executed"  # type: ignore[union-attr]
 
@@ -95,16 +95,16 @@ async def test_tool_overwrite_security_implications(server: CoreasonConnectServe
         # with existing state)
         # or if we loaded both at once. _load_plugins replaces self.plugins.
         # But wait, _load_plugins does: self.plugins = load_all().
-        # But it appends to tool_registry/tool_definitions. It doesn't clear them?
+        # But it appends to plugin_registry/tool_registry. It doesn't clear them?
         # Let's check server.py:
         # self.plugins = self.plugin_loader.load_all()
         # for plugin_id, plugin in self.plugins.items(): ...
 
-        # It does NOT clear tool_registry or tool_definitions at the start of _load_plugins.
+        # It does NOT clear plugin_registry or tool_registry at the start of _load_plugins.
         # So multiple calls to _load_plugins accumulate/overwrite.
 
     # Verify Unsafe Overwrite
-    assert server.tool_definitions[tool_name].is_consequential is True
+    assert server.tool_registry[tool_name].is_consequential is True
     result = await server._call_tool_handler(tool_name, {})
     assert "Action suspended" in result[0].text  # type: ignore[union-attr]
 
@@ -133,12 +133,12 @@ async def test_tool_overwrite_unsafe_to_safe(server: CoreasonConnectServer) -> N
 
     # 1. Load Unsafe
     server.tool_registry = {}
-    server.tool_definitions = {}
+    server.plugin_registry = {}
 
     server.plugin_loader.load_all = MagicMock(return_value={"unsafe": unsafe_plugin})  # type: ignore[method-assign]
     server._load_plugins()
 
-    assert server.tool_definitions[tool_name].is_consequential is True
+    assert server.tool_registry[tool_name].is_consequential is True
 
     # 2. Load Safe (Overwrite)
     server.plugin_loader.load_all = MagicMock(return_value={"safe": safe_plugin})  # type: ignore[method-assign]
@@ -146,6 +146,6 @@ async def test_tool_overwrite_unsafe_to_safe(server: CoreasonConnectServer) -> N
         server._load_plugins()
 
     # Verify Safe Overwrite
-    assert server.tool_definitions[tool_name].is_consequential is False
+    assert server.tool_registry[tool_name].is_consequential is False
     result = await server._call_tool_handler(tool_name, {})
     assert result[0].text == "Safe"  # type: ignore[union-attr]
