@@ -8,6 +8,7 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
+from typing import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -24,7 +25,7 @@ def mock_secrets() -> SecretsProvider:
 
 
 @pytest.fixture
-def mock_graph_client() -> MagicMock:
+def mock_graph_client() -> Generator[MagicMock, None, None]:
     with patch("coreason_connect.plugins.ms365.GraphClientFactory.create_with_default_middleware") as mock_factory:
         mock_client = MagicMock()
         mock_factory.return_value = mock_client
@@ -37,7 +38,10 @@ def connector(mock_secrets: SecretsProvider, mock_graph_client: MagicMock) -> MS
 
 
 def test_init_failure(mock_secrets: SecretsProvider) -> None:
-    with patch("coreason_connect.plugins.ms365.GraphClientFactory.create_with_default_middleware", side_effect=Exception("Init Failed")):
+    with patch(
+        "coreason_connect.plugins.ms365.GraphClientFactory.create_with_default_middleware",
+        side_effect=Exception("Init Failed"),
+    ):
         with pytest.raises(Exception, match="Init Failed"):
             MS365Connector(mock_secrets)
 
@@ -60,9 +64,7 @@ def test_find_meeting_slot(connector: MS365Connector, mock_graph_client: MagicMo
     mock_response.json.return_value = {"meetingTimeSlots": []}
     mock_graph_client.post.return_value = mock_response
 
-    result = connector.execute(
-        "find_meeting_slot", {"attendees": ["test@example.com"], "duration": "PT1H"}
-    )
+    result = connector.execute("find_meeting_slot", {"attendees": ["test@example.com"], "duration": "PT1H"})
 
     assert result == {"meetingTimeSlots": []}
     mock_graph_client.post.assert_called_once()
@@ -76,9 +78,7 @@ def test_draft_email(connector: MS365Connector, mock_graph_client: MagicMock) ->
     mock_response.json.return_value = {"id": "123", "subject": "Test"}
     mock_graph_client.post.return_value = mock_response
 
-    result = connector.execute(
-        "draft_email", {"to": "test@example.com", "subject": "Test", "body": "Hello"}
-    )
+    result = connector.execute("draft_email", {"to": "test@example.com", "subject": "Test", "body": "Hello"})
 
     assert result == {"id": "123", "subject": "Test"}
     mock_graph_client.post.assert_called_once()
@@ -117,6 +117,7 @@ def test_execute_failure(connector: MS365Connector, mock_graph_client: MagicMock
 
 
 # --- Edge Case Tests ---
+
 
 def test_find_meeting_slot_empty_attendees(connector: MS365Connector, mock_graph_client: MagicMock) -> None:
     """Test finding meeting slot with no attendees."""
@@ -177,11 +178,7 @@ def test_complex_scenario_chain(connector: MS365Connector, mock_graph_client: Ma
     # 3. Send Email
     mock_response_send = MagicMock()
 
-    mock_graph_client.post.side_effect = [
-        mock_response_slot,
-        mock_response_draft,
-        mock_response_send
-    ]
+    mock_graph_client.post.side_effect = [mock_response_slot, mock_response_draft, mock_response_send]
 
     # Execute Chain
     slot_res = connector.execute("find_meeting_slot", {"attendees": ["a@b.com"], "duration": "PT1H"})

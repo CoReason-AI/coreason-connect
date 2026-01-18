@@ -12,9 +12,10 @@ from abc import abstractmethod
 from typing import Any
 
 import pytest
+from mcp.types import Tool
+
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
 from coreason_connect.types import ToolDefinition
-from mcp.types import Tool
 
 
 class MockSecretsProvider:

@@ -11,6 +11,7 @@
 import os
 
 import pytest
+
 from coreason_connect.config import AppConfig, PluginConfig
 from coreason_connect.interfaces import SecretsProvider
 from coreason_connect.server import CoreasonConnectServer
