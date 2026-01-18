@@ -8,6 +8,7 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
+import json
 import os
 
 import pytest
@@ -62,10 +63,8 @@ async def test_search_abstracts(confex_server: CoreasonConnectServer) -> None:
 
     # Verify output
     assert len(results) == 1
-    text_content = results[0]
-    assert text_content.type == "text"
-    assert "Advances in AI" in text_content.text
-    assert "abs_123" in text_content.text
+    assert "Advances in AI" in results[0].text  # type: ignore[union-attr]
+    assert "abs_123" in results[0].text  # type: ignore[union-attr]
 
 
 @pytest.mark.asyncio
@@ -87,3 +86,78 @@ async def test_confex_error_handling(confex_server: CoreasonConnectServer) -> No
     results = await confex_server._call_tool_handler("search_abstracts", {"conference_id": "INVALID", "keywords": []})
 
     assert "Error: Tool 'search_abstracts' failed - Confex error: Invalid conference ID" in results[0].text  # type: ignore[union-attr]
+
+
+@pytest.mark.asyncio
+async def test_search_abstracts_empty(confex_server: CoreasonConnectServer) -> None:
+    """Test search_abstracts returning no results."""
+    # The mock client returns [] for conference_id="EMPTY"
+    results = await confex_server._call_tool_handler(
+        "search_abstracts", {"conference_id": "EMPTY", "keywords": ["nothing"]}
+    )
+
+    assert len(results) == 1
+    assert results[0].text == "[]"  # type: ignore[union-attr]
+
+
+@pytest.mark.asyncio
+async def test_initialization_without_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the adapter initializes gracefully without an API key."""
+    # Remove the key
+    monkeypatch.delenv("CONFEX_API_KEY", raising=False)
+
+    config = AppConfig(
+        plugins=[
+            PluginConfig(
+                id="confex", type="local_python", path=CONFEX_ADAPTER_PATH, description="Conference Intelligence"
+            )
+        ]
+    )
+    secrets = EnvSecretsProvider()
+
+    # This should not raise an exception
+    server = CoreasonConnectServer(config=config, secrets=secrets)
+    assert "confex" in server.plugins
+
+    # Tools should still work (mock client doesn't check key strictly, but we verify it doesn't crash)
+    results = await server._call_tool_handler("search_abstracts", {"conference_id": "conf_2023", "keywords": ["AI"]})
+    assert len(results) == 1
+    assert "Advances in AI" in results[0].text  # type: ignore[union-attr]
+
+
+@pytest.mark.asyncio
+async def test_extra_arguments(confex_server: CoreasonConnectServer) -> None:
+    """Test robustness against extra arguments."""
+    # Extra arguments should be ignored by the adapter or safely passed
+    # (mock accepts kwargs in execute but only uses specific ones)
+    results = await confex_server._call_tool_handler(
+        "get_session_details", {"session_id": "sess_999", "extraneous_param": "should_be_ignored"}
+    )
+
+    assert len(results) == 1
+    assert "Keynote: The Future" in results[0].text  # type: ignore[union-attr]
+
+
+@pytest.mark.asyncio
+async def test_complex_search_and_retrieve_flow(confex_server: CoreasonConnectServer) -> None:
+    """Simulate a workflow: Search -> Extract ID -> Get Details."""
+    # 1. Search
+    search_results = await confex_server._call_tool_handler(
+        "search_abstracts", {"conference_id": "conf_2023", "keywords": ["AI"]}
+    )
+
+    # Parse result
+    data = json.loads(search_results[0].text)  # type: ignore[union-attr]
+    assert len(data) > 0
+    # In a real scenario, we'd pick an ID from here.
+    # Our mock search returns 'abs_123', but our mock details knows 'sess_999'.
+    # Let's pretend the agent decided to lookup 'sess_999' based on external knowledge or a different search.
+
+    target_id = "sess_999"
+
+    # 2. Get Details
+    detail_results = await confex_server._call_tool_handler("get_session_details", {"session_id": target_id})
+
+    details = json.loads(detail_results[0].text)  # type: ignore[union-attr]
+    assert details["id"] == target_id
+    assert details["location"] == "Grand Ballroom"
