@@ -7,3 +7,13 @@
 # Commercial use beyond a 30-day trial requires a separate license.
 #
 # Source Code: https://github.com/CoReason-AI/coreason_connect
+
+
+class RightsAdvisoryClient:
+    def __init__(self, username=None, password=None):
+        pass
+
+    def check_rights(self, doi):
+        if doi == "10.1000/denied":
+            return "DENY"
+        return "GRANT"
