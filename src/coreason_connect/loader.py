@@ -49,6 +49,11 @@ class PluginLoader:
                     if connector:
                         self.plugins[plugin_conf.id] = connector
                         logger.info(f"Loaded plugin: {plugin_conf.id}")
+                elif plugin_conf.type == "native":
+                    connector = self._load_native(plugin_conf)
+                    if connector:
+                        self.plugins[plugin_conf.id] = connector
+                        logger.info(f"Loaded native plugin: {plugin_conf.id}")
                 else:
                     logger.warning(f"Unsupported plugin type '{plugin_conf.type}' for plugin '{plugin_conf.id}'")
             except Exception as e:
@@ -56,6 +61,29 @@ class PluginLoader:
                 # We continue loading other plugins instead of crashing
 
         return self.plugins
+
+    def _load_native(self, config: PluginConfig) -> ConnectorProtocol:
+        """Load a built-in native plugin."""
+        # Normalize the ID to a valid python module name (e.g., "ms365" -> "ms365", "my-plugin" -> "my_plugin")
+        module_name = config.id.replace("-", "_")
+        full_module_name = f"coreason_connect.plugins.{module_name}"
+
+        try:
+            module = importlib.import_module(full_module_name)
+        except ImportError as e:
+            raise ImportError(f"Native plugin module '{full_module_name}' not found: {e}") from e
+
+        # Find the ConnectorProtocol implementation
+        connector_class = None
+        for _name, obj in inspect.getmembers(module, inspect.isclass):
+            if issubclass(obj, ConnectorProtocol) and obj is not ConnectorProtocol:
+                connector_class = obj
+                break
+
+        if connector_class is None:
+            raise ValueError(f"No ConnectorProtocol implementation found in {full_module_name}")
+
+        return connector_class(self.secrets)
 
     def _load_local_python(self, config: PluginConfig) -> ConnectorProtocol:
         if not config.path:
