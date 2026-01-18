@@ -84,3 +84,72 @@ async def test_rightfind_plugin_loading_and_execution() -> None:
     assert len(result_error) == 1
     # The server catches ToolExecutionError and returns a formatted message
     assert "Error: Tool 'search_literature' failed - RightFind error: Search failed" in result_error[0].text  # type: ignore[union-attr]
+
+
+class BrokenSecrets(SecretsProvider):
+    def get_secret(self, key: str) -> str:
+        raise ValueError("Secret access denied")
+
+    def get_user_credential(self, key: str) -> str:
+        raise ValueError("User credential access denied")
+
+
+@pytest.mark.asyncio
+async def test_plugin_init_failure_missing_secrets() -> None:
+    """Test that the server handles plugin initialization failure gracefully."""
+    cwd = os.getcwd()
+    adapter_path = os.path.join(cwd, "tests/fixtures/local_libs/adapters/rf_adapter.py")
+
+    config = AppConfig(
+        plugins=[
+            PluginConfig(
+                id="rightfind_broken",
+                type="local_python",
+                path=adapter_path,
+                description="Broken Secrets Plugin",
+            )
+        ]
+    )
+
+    # Secrets provider that raises on access (used in adapter __init__)
+    secrets = BrokenSecrets()
+
+    # The server should catch the exception during loading
+    server = CoreasonConnectServer(config=config, secrets=secrets)
+
+    # Plugin should NOT be loaded
+    assert "rightfind_broken" not in server.plugins
+    assert "search_literature" not in server.tool_registry
+
+
+@pytest.mark.asyncio
+async def test_complex_workflow() -> None:
+    """
+    Test a simulated complex workflow: Search -> Check Rights -> Purchase.
+    """
+    cwd = os.getcwd()
+    adapter_path = os.path.join(cwd, "tests/fixtures/local_libs/adapters/rf_adapter.py")
+    config = AppConfig(
+        plugins=[
+            PluginConfig(
+                id="rightfind",
+                type="local_python",
+                path=adapter_path,
+            )
+        ]
+    )
+    server = CoreasonConnectServer(config=config, secrets=MockSecrets())
+
+    # Step 1: Search
+    search_res = await server._call_tool_handler("search_literature", {"query": "science"})
+    # Assume result is a JSON-like string we can parse or check
+    # "[{'title': 'Novel Inhibitors', 'doi': '10.1000/1'}]"
+    assert "10.1000/1" in search_res[0].text  # type: ignore[union-attr]
+
+    # Step 2: Check Rights (simulated based on previous result)
+    rights_res = await server._call_tool_handler("check_rights", {"doi": "10.1000/1"})
+    assert "GRANT" in rights_res[0].text  # type: ignore[union-attr]
+
+    # Step 3: Purchase (Spend Gate Trigger)
+    purchase_res = await server._call_tool_handler("purchase_article", {"content_id": "10.1000/1"})
+    assert "Action suspended" in purchase_res[0].text  # type: ignore[union-attr]
