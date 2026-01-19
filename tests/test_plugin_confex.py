@@ -15,7 +15,7 @@ import pytest
 
 from coreason_connect.config import AppConfig, PluginConfig
 from coreason_connect.secrets import EnvSecretsProvider
-from coreason_connect.server import CoreasonConnectServer
+from coreason_connect.server import CoreasonConnectServiceAsync
 
 # Setup paths
 FIXTURES_DIR = os.path.dirname(os.path.abspath(__file__)) + "/fixtures"
@@ -24,7 +24,7 @@ CONFEX_ADAPTER_PATH = os.path.join(LOCAL_LIBS_DIR, "adapters/confex_adapter.py")
 
 
 @pytest.fixture
-def confex_server(monkeypatch: pytest.MonkeyPatch) -> CoreasonConnectServer:
+def confex_server(monkeypatch: pytest.MonkeyPatch) -> CoreasonConnectServiceAsync:
     """Create a server instance with the Confex plugin loaded."""
     # Ensure environment has secret
     monkeypatch.setenv("CONFEX_API_KEY", "test-key-123")
@@ -37,11 +37,11 @@ def confex_server(monkeypatch: pytest.MonkeyPatch) -> CoreasonConnectServer:
         ]
     )
     secrets = EnvSecretsProvider()
-    return CoreasonConnectServer(config=config, secrets=secrets)
+    return CoreasonConnectServiceAsync(config=config, secrets=secrets)
 
 
 @pytest.mark.asyncio
-async def test_confex_plugin_loading(confex_server: CoreasonConnectServer) -> None:
+async def test_confex_plugin_loading(confex_server: CoreasonConnectServiceAsync) -> None:
     """Test that the Confex plugin loads and registers tools."""
     # Check plugin registry
     assert "confex" in confex_server.plugins
@@ -54,7 +54,7 @@ async def test_confex_plugin_loading(confex_server: CoreasonConnectServer) -> No
 
 
 @pytest.mark.asyncio
-async def test_search_abstracts(confex_server: CoreasonConnectServer) -> None:
+async def test_search_abstracts(confex_server: CoreasonConnectServiceAsync) -> None:
     """Test the search_abstracts tool."""
     # Call the tool
     results = await confex_server._call_tool_handler(
@@ -68,7 +68,7 @@ async def test_search_abstracts(confex_server: CoreasonConnectServer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_session_details(confex_server: CoreasonConnectServer) -> None:
+async def test_get_session_details(confex_server: CoreasonConnectServiceAsync) -> None:
     """Test the get_session_details tool."""
     # Call the tool
     results = await confex_server._call_tool_handler("get_session_details", {"session_id": "sess_999"})
@@ -80,7 +80,7 @@ async def test_get_session_details(confex_server: CoreasonConnectServer) -> None
 
 
 @pytest.mark.asyncio
-async def test_confex_error_handling(confex_server: CoreasonConnectServer) -> None:
+async def test_confex_error_handling(confex_server: CoreasonConnectServiceAsync) -> None:
     """Test error handling in Confex tool."""
     # Call with invalid conference ID (mock raises error)
     results = await confex_server._call_tool_handler("search_abstracts", {"conference_id": "INVALID", "keywords": []})
@@ -89,7 +89,7 @@ async def test_confex_error_handling(confex_server: CoreasonConnectServer) -> No
 
 
 @pytest.mark.asyncio
-async def test_search_abstracts_empty(confex_server: CoreasonConnectServer) -> None:
+async def test_search_abstracts_empty(confex_server: CoreasonConnectServiceAsync) -> None:
     """Test search_abstracts returning no results."""
     # The mock client returns [] for conference_id="EMPTY"
     results = await confex_server._call_tool_handler(
@@ -116,7 +116,7 @@ async def test_initialization_without_api_key(monkeypatch: pytest.MonkeyPatch) -
     secrets = EnvSecretsProvider()
 
     # This should not raise an exception
-    server = CoreasonConnectServer(config=config, secrets=secrets)
+    server = CoreasonConnectServiceAsync(config=config, secrets=secrets)
     assert "confex" in server.plugins
 
     # Tools should still work (mock client doesn't check key strictly, but we verify it doesn't crash)
@@ -126,7 +126,7 @@ async def test_initialization_without_api_key(monkeypatch: pytest.MonkeyPatch) -
 
 
 @pytest.mark.asyncio
-async def test_extra_arguments(confex_server: CoreasonConnectServer) -> None:
+async def test_extra_arguments(confex_server: CoreasonConnectServiceAsync) -> None:
     """Test robustness against extra arguments."""
     # Extra arguments should be ignored by the adapter or safely passed
     # (mock accepts kwargs in execute but only uses specific ones)
@@ -139,7 +139,7 @@ async def test_extra_arguments(confex_server: CoreasonConnectServer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_complex_search_and_retrieve_flow(confex_server: CoreasonConnectServer) -> None:
+async def test_complex_search_and_retrieve_flow(confex_server: CoreasonConnectServiceAsync) -> None:
     """Simulate a workflow: Search -> Extract ID -> Get Details."""
     # 1. Search
     search_results = await confex_server._call_tool_handler(

@@ -14,7 +14,7 @@ import pytest
 from mcp.types import Tool
 
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
-from coreason_connect.server import CoreasonConnectServer
+from coreason_connect.server import CoreasonConnectServiceAsync
 from coreason_connect.types import ToolDefinition
 
 
@@ -24,12 +24,12 @@ def mock_secrets() -> SecretsProvider:
 
 
 @pytest.fixture
-def server(mock_secrets: SecretsProvider) -> CoreasonConnectServer:
-    return CoreasonConnectServer(secrets=mock_secrets)
+def server(mock_secrets: SecretsProvider) -> CoreasonConnectServiceAsync:
+    return CoreasonConnectServiceAsync(secrets=mock_secrets)
 
 
 @pytest.mark.asyncio
-async def test_tool_overwrite_security_implications(server: CoreasonConnectServer) -> None:
+async def test_tool_overwrite_security_implications(server: CoreasonConnectServiceAsync) -> None:
     """
     Test that when a tool is overwritten by a plugin with different 'is_consequential' metadata,
     the metadata in the registry is updated to reflect the last loaded plugin.
@@ -110,7 +110,7 @@ async def test_tool_overwrite_security_implications(server: CoreasonConnectServe
 
 
 @pytest.mark.asyncio
-async def test_tool_overwrite_unsafe_to_safe(server: CoreasonConnectServer) -> None:
+async def test_tool_overwrite_unsafe_to_safe(server: CoreasonConnectServiceAsync) -> None:
     """Test overwriting an unsafe tool with a safe one."""
     tool_name = "flip_flop_tool"
 
