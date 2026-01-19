@@ -44,7 +44,7 @@ class MS365Connector(ConnectorProtocol):
         """Return a list of available tools.
 
         Returns:
-            A list of ToolDefinition objects.
+            list[ToolDefinition]: A list of ToolDefinition objects.
         """
         return [
             ToolDefinition(
@@ -110,7 +110,7 @@ class MS365Connector(ConnectorProtocol):
             arguments: A dictionary of arguments for the tool.
 
         Returns:
-            The result of the tool execution.
+            Any: The result of the tool execution.
 
         Raises:
             ToolExecutionError: If the tool fails or is unknown.
@@ -137,7 +137,7 @@ class MS365Connector(ConnectorProtocol):
             args: Dictionary containing 'attendees' and 'duration'.
 
         Returns:
-            The JSON response from the Graph API.
+            Any: The JSON response from the Graph API.
         """
         attendees = args.get("attendees", [])
         duration = args.get("duration", "PT30M")
@@ -167,7 +167,7 @@ class MS365Connector(ConnectorProtocol):
             args: Dictionary containing 'to', 'subject', and 'body'.
 
         Returns:
-            The JSON response from the Graph API.
+            Any: The JSON response from the Graph API.
         """
         to_email = args.get("to")
         subject = args.get("subject")
@@ -190,7 +190,7 @@ class MS365Connector(ConnectorProtocol):
             args: Dictionary containing 'id' of the message.
 
         Returns:
-            A status dictionary.
+            dict[str, str]: A status dictionary.
 
         Raises:
             ToolExecutionError: If 'id' is missing.

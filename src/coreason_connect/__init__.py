@@ -9,7 +9,7 @@
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
 """
-coreason-connect
+coreason-connect: The secure execution gateway for the CoReason ecosystem.
 """
 
 __version__ = "0.1.0"

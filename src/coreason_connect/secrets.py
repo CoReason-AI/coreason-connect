@@ -15,20 +15,20 @@ from coreason_connect.interfaces import SecretsProvider
 
 
 class EnvSecretsProvider(SecretsProvider):
-    """
-    A basic secrets provider that retrieves secrets from environment variables.
-    This is intended for development and testing environments.
+    """A basic secrets provider that retrieves secrets from environment variables.
+
+    This implementation is primarily intended for development and testing
+    environments where secrets are injected via the environment.
     """
 
     def get_secret(self, key: str) -> str:
-        """
-        Retrieve a simple secret by key from environment variables.
+        """Retrieve a simple secret by key from environment variables.
 
         Args:
             key: The name of the environment variable.
 
         Returns:
-            The value of the environment variable.
+            str: The value of the environment variable.
 
         Raises:
             KeyError: If the environment variable is not set.
@@ -38,15 +38,16 @@ class EnvSecretsProvider(SecretsProvider):
         return os.environ[key]
 
     def get_user_credential(self, key: str) -> Any:
-        """
-        Retrieve a user credential by key from environment variables.
-        For this implementation, it behaves identically to get_secret.
+        """Retrieve a user credential by key from environment variables.
+
+        For this implementation, it behaves identically to get_secret, assuming
+        credentials are stored as simple strings in environment variables.
 
         Args:
             key: The name of the environment variable.
 
         Returns:
-            The value of the environment variable.
+            Any: The value of the environment variable.
 
         Raises:
             KeyError: If the environment variable is not set.
