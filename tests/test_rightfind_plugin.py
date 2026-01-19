@@ -14,7 +14,7 @@ import pytest
 
 from coreason_connect.config import AppConfig, PluginConfig
 from coreason_connect.interfaces import SecretsProvider
-from coreason_connect.server import CoreasonConnectServer
+from coreason_connect.server import CoreasonConnectServiceAsync
 
 
 # Mock secrets provider
@@ -55,7 +55,7 @@ async def test_rightfind_plugin_loading_and_execution() -> None:
     )
 
     secrets = MockSecrets()
-    server = CoreasonConnectServer(config=config, secrets=secrets)
+    server = CoreasonConnectServiceAsync(config=config, secrets=secrets)
 
     # Verify plugin loaded
     assert "rightfind" in server.plugins
@@ -115,7 +115,7 @@ async def test_plugin_init_failure_missing_secrets() -> None:
     secrets = BrokenSecrets()
 
     # The server should catch the exception during loading
-    server = CoreasonConnectServer(config=config, secrets=secrets)
+    server = CoreasonConnectServiceAsync(config=config, secrets=secrets)
 
     # Plugin should NOT be loaded
     assert "rightfind_broken" not in server.plugins
@@ -138,7 +138,7 @@ async def test_complex_workflow() -> None:
             )
         ]
     )
-    server = CoreasonConnectServer(config=config, secrets=MockSecrets())
+    server = CoreasonConnectServiceAsync(config=config, secrets=MockSecrets())
 
     # Step 1: Search
     search_res = await server._call_tool_handler("search_literature", {"query": "science"})

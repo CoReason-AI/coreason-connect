@@ -19,15 +19,19 @@ from coreason_connect.main import hello_world, main
 @pytest.mark.asyncio
 async def test_hello_world() -> None:
     """Test that hello_world initializes server and handles cancellation."""
-    # Mock AppConfig and CoreasonConnectServer to avoid side effects
+    # Mock AppConfig and CoreasonConnectServiceAsync to avoid side effects
     with (
         patch("coreason_connect.main.AppConfig") as MockConfig,
-        patch("coreason_connect.main.CoreasonConnectServer") as MockServer,
+        patch("coreason_connect.main.CoreasonConnectServiceAsync") as MockServer,
         patch("asyncio.sleep", side_effect=asyncio.CancelledError) as mock_sleep,
     ):
         mock_server_instance = MockServer.return_value
         mock_server_instance.name = "TestServer"
         mock_server_instance.version = "0.0.0"
+
+        # Setup async context manager mock
+        mock_server_instance.__aenter__.return_value = mock_server_instance
+        mock_server_instance.__aexit__.return_value = None
 
         # Run hello_world, which should catch CancelledError and exit
         await hello_world()
@@ -35,6 +39,8 @@ async def test_hello_world() -> None:
         # Verification
         MockConfig.assert_called_once()
         MockServer.assert_called_once()
+        mock_server_instance.__aenter__.assert_called_once()
+        mock_server_instance.__aexit__.assert_called_once()
         mock_sleep.assert_called_once()
 
 
