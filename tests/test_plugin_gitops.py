@@ -8,6 +8,7 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
+from typing import Any
 from unittest.mock import MagicMock, Mock
 
 import httpx
@@ -240,7 +241,7 @@ def test_get_build_logs_null_output(gitops_plugin: GitOpsConnector) -> None:
 
 def test_get_build_logs_complex_scenario(gitops_plugin: GitOpsConnector) -> None:
     """Test a large response with mixed statuses and robust parsing."""
-    check_runs = []
+    check_runs: list[dict[str, Any]] = []
     # 50 passing runs
     for i in range(50):
         check_runs.append({"status": "completed", "conclusion": "success", "name": f"test_{i}"})
