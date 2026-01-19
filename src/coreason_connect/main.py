@@ -12,7 +12,7 @@ import asyncio
 from contextlib import suppress
 
 from coreason_connect.config import AppConfig
-from coreason_connect.server import CoreasonConnectServer
+from coreason_connect.server import CoreasonConnectServiceAsync
 from coreason_connect.utils.logger import logger
 
 
@@ -20,22 +20,22 @@ async def hello_world() -> None:
     """Run the Coreason Connect server.
 
     This function initializes the server configuration, starts the
-    CoreasonConnectServer, and keeps it running indefinitely.
+    CoreasonConnectServiceAsync, and keeps it running indefinitely.
     """
     logger.info("Starting Coreason Connect...")
     config = AppConfig()
-    server = CoreasonConnectServer(config)
 
-    # In a real app, we would attach this to a transport (stdio or SSE)
-    # For now, we just simulate running
-    logger.info(f"Server '{server.name}' v{server.version} is ready.")
+    async with CoreasonConnectServiceAsync(config) as server:
+        # In a real app, we would attach this to a transport (stdio or SSE)
+        # For now, we just simulate running
+        logger.info(f"Server '{server.name}' v{server.version} is ready.")
 
-    # Keep alive loop simulation
-    try:
-        while True:
-            await asyncio.sleep(3600)
-    except asyncio.CancelledError:
-        logger.info("Shutting down...")
+        # Keep alive loop simulation
+        try:
+            while True:
+                await asyncio.sleep(3600)
+        except asyncio.CancelledError:
+            logger.info("Shutting down...")
 
 
 def main() -> None:

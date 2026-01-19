@@ -11,6 +11,8 @@
 import json
 from typing import Any
 
+import anyio
+import httpx
 import mcp.types as types
 from mcp.server import Server
 
@@ -22,14 +24,15 @@ from coreason_connect.types import ToolDefinition, ToolExecutionError
 from coreason_connect.utils.logger import logger
 
 
-class CoreasonConnectServer(Server):
-    """The MCP Host that aggregates tools and plugins.
+class CoreasonConnectServiceAsync(Server):
+    """The Async MCP Host that aggregates tools and plugins.
 
     This server is responsible for:
     1. Loading plugins via the PluginLoader.
     2. Aggregating tools from all loaded plugins.
     3. Handling MCP tool listing and execution requests.
     4. Enforcing the "Spend Gate" for consequential actions.
+    5. Managing resources (HTTP client) via async context manager.
 
     Attributes:
         config: Application configuration.
@@ -44,6 +47,7 @@ class CoreasonConnectServer(Server):
         self,
         config: AppConfig | None = None,
         secrets: SecretsProvider | None = None,
+        client: httpx.AsyncClient | None = None,
         name: str = "coreason-connect",
         version: str = "0.1.0",
     ) -> None:
@@ -52,6 +56,7 @@ class CoreasonConnectServer(Server):
         Args:
             config: Configuration for the application. Defaults to standard AppConfig.
             secrets: Secrets provider for the application. Defaults to EnvSecretsProvider.
+            client: Optional httpx.AsyncClient for connection pooling.
             name: Name of the server. Defaults to "coreason-connect".
             version: Version of the server. Defaults to "0.1.0".
         """
@@ -61,12 +66,18 @@ class CoreasonConnectServer(Server):
         self.config = config or AppConfig()
         self.secrets = secrets or EnvSecretsProvider()
 
+        self._internal_client = client is None
+        self._client = client or httpx.AsyncClient()
+
         self.plugin_loader = PluginLoader(self.config, self.secrets)
         self.plugins: dict[str, ConnectorProtocol] = {}
         self.plugin_registry: dict[str, ConnectorProtocol] = {}
         self.tool_registry: dict[str, ToolDefinition] = {}
 
         # Load plugins
+        # Note: We load plugins in __init__ because we are following the structure where
+        # server initialization prepares the environment.
+        # Future refactor could move this to __aenter__ if strictly async I/O is required.
         self._load_plugins()
 
         # Register handlers
@@ -77,6 +88,13 @@ class CoreasonConnectServer(Server):
         logger.info(
             f"Initialized {name} v{version} with {len(self.plugins)} plugins and {len(self.tool_registry)} tools"
         )
+
+    async def __aenter__(self) -> "CoreasonConnectServiceAsync":
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if self._internal_client:
+            await self._client.aclose()
 
     def _load_plugins(self) -> None:
         """Load plugins and build the tool registry."""
@@ -93,6 +111,43 @@ class CoreasonConnectServer(Server):
                     self.tool_registry[tool_def.name] = tool_def
             except Exception as e:
                 logger.error(f"Failed to get tools from plugin '{plugin_id}': {e}")
+
+    async def get_all_tools(self) -> list[types.Tool]:
+        """Public method to get all tools (wraps handler)."""
+        return await self._list_tools_handler()
+
+    async def execute_tool(self, name: str, arguments: dict[str, Any]) -> Any:
+        """Public method to execute a tool (wraps handler logic).
+
+        Note: This returns raw result or raises exception, unlike _call_tool_handler which returns MCP Content.
+        """
+        # We can reuse the logic in _call_tool_handler but we might want the raw result.
+        # For the library facade, raw result is better.
+        # But _call_tool_handler handles 'Spend Gate'.
+        # Let's reuse _call_tool_handler to ensure consistency, but we'll have to parse the result?
+        # Or better: extract the logic.
+
+        # Re-implementing logic here for direct usage (Library mode)
+        plugin = self.plugin_registry.get(name)
+        tool_def = self.tool_registry.get(name)
+
+        if not plugin or not tool_def:
+            raise ValueError(f"Tool '{name}' not found.")
+
+        if tool_def.is_consequential:
+            # In library mode, maybe we raise an error or just log?
+            # The prompt says: "Action suspended: Human approval required for {name}."
+            # For library usage, maybe we raise a specific exception?
+            # Or just return the string message.
+            msg = f"Action suspended: Human approval required for {name}."
+            logger.info(f"Tool execution suspended for approval: {name}")
+            return msg
+
+        try:
+            return plugin.execute(name, arguments)
+        except Exception as e:
+            # In library mode, we might want to propagate the exception or wrap it
+            raise e
 
     async def _list_tools_handler(self) -> list[types.Tool]:
         """Handler for listing tools.
@@ -117,6 +172,7 @@ class CoreasonConnectServer(Server):
         Returns:
             list[types.Content]: A list containing the execution result as text content.
         """
+        # Logic is similar to execute_tool but formatted for MCP
         plugin = self.plugin_registry.get(name)
         tool_def = self.tool_registry.get(name)
 
@@ -142,3 +198,36 @@ class CoreasonConnectServer(Server):
         except Exception as e:
             logger.error(f"Error executing tool '{name}': {e}")
             return [types.TextContent(type="text", text=f"Error executing tool: {str(e)}")]
+
+
+class CoreasonConnectService:
+    """The Sync Facade for CoreasonConnectServiceAsync.
+
+    Allows usage of the service in a synchronous context.
+    """
+
+    def __init__(
+        self,
+        config: AppConfig | None = None,
+        secrets: SecretsProvider | None = None,
+        client: httpx.AsyncClient | None = None,
+        name: str = "coreason-connect",
+        version: str = "0.1.0",
+    ) -> None:
+        self._async = CoreasonConnectServiceAsync(config, secrets, client, name, version)
+
+    def __enter__(self) -> "CoreasonConnectService":
+        # We start the async context in a blocking way
+        anyio.run(self._async.__aenter__)
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        anyio.run(self._async.__aexit__, exc_type, exc_val, exc_tb)
+
+    def get_all_tools(self) -> list[types.Tool]:
+        """Get all tools synchronously."""
+        return anyio.run(self._async.get_all_tools)
+
+    def execute_tool(self, name: str, arguments: dict[str, Any]) -> Any:
+        """Execute a tool synchronously."""
+        return anyio.run(self._async.execute_tool, name, arguments)

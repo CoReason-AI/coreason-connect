@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
-from coreason_connect.server import CoreasonConnectServer
+from coreason_connect.server import CoreasonConnectServiceAsync
 from tests.fixtures.mock_plugin import MockPlugin
 
 
@@ -23,8 +23,8 @@ def mock_secrets() -> SecretsProvider:
 
 
 @pytest.fixture
-def server(mock_secrets: SecretsProvider) -> CoreasonConnectServer:
-    return CoreasonConnectServer(secrets=mock_secrets)
+def server(mock_secrets: SecretsProvider) -> CoreasonConnectServiceAsync:
+    return CoreasonConnectServiceAsync(secrets=mock_secrets)
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def mock_plugin(mock_secrets: SecretsProvider) -> MockPlugin:
 
 
 @pytest.mark.asyncio
-async def test_duplicate_tool_name_warning(server: CoreasonConnectServer, mock_plugin: MockPlugin) -> None:
+async def test_duplicate_tool_name_warning(server: CoreasonConnectServiceAsync, mock_plugin: MockPlugin) -> None:
     """Test that a warning is logged when a duplicate tool name is encountered."""
 
     # Create a second plugin with the same tool name

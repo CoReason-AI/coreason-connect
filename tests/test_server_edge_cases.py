@@ -15,7 +15,7 @@ import pytest
 from mcp.types import Tool
 
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
-from coreason_connect.server import CoreasonConnectServer
+from coreason_connect.server import CoreasonConnectServiceAsync
 from coreason_connect.types import ToolDefinition
 
 
@@ -25,12 +25,12 @@ def mock_secrets() -> SecretsProvider:
 
 
 @pytest.fixture
-def server(mock_secrets: SecretsProvider) -> CoreasonConnectServer:
-    return CoreasonConnectServer(secrets=mock_secrets)
+def server(mock_secrets: SecretsProvider) -> CoreasonConnectServiceAsync:
+    return CoreasonConnectServiceAsync(secrets=mock_secrets)
 
 
 @pytest.mark.asyncio
-async def test_spend_gate_precedence_over_validation(server: CoreasonConnectServer) -> None:
+async def test_spend_gate_precedence_over_validation(server: CoreasonConnectServiceAsync) -> None:
     """
     Test that the spend gate suspension happens BEFORE any plugin execution or argument validation.
     Even if arguments are completely invalid, a consequential tool should trigger suspension.
@@ -72,7 +72,7 @@ async def test_spend_gate_precedence_over_validation(server: CoreasonConnectServ
 
 
 @pytest.mark.asyncio
-async def test_registry_mismatch_robustness(server: CoreasonConnectServer) -> None:
+async def test_registry_mismatch_robustness(server: CoreasonConnectServiceAsync) -> None:
     """
     Test behavior when tool_registry has an entry but plugin_registry does not.
     This simulates a corrupted state.
@@ -97,7 +97,7 @@ async def test_registry_mismatch_robustness(server: CoreasonConnectServer) -> No
 
 
 @pytest.mark.asyncio
-async def test_runtime_tampering_protection(server: CoreasonConnectServer) -> None:
+async def test_runtime_tampering_protection(server: CoreasonConnectServiceAsync) -> None:
     """
     Test if modifying the ToolDefinition object in the plugin AFTER loading
     affects the server's registry.

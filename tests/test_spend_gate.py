@@ -11,14 +11,14 @@
 
 import pytest
 
-from coreason_connect.server import CoreasonConnectServer
+from coreason_connect.server import CoreasonConnectServiceAsync
 from tests.fixtures.mock_consequential_plugin import MockConsequentialPlugin
 
 
 @pytest.mark.asyncio
 async def test_spend_gate_interception() -> None:
     """Test that consequential tools are intercepted by the spend gate."""
-    server = CoreasonConnectServer()
+    server = CoreasonConnectServiceAsync()
 
     # Inject our mock consequential plugin manually to bypass loader for this specific test
     mock_plugin = MockConsequentialPlugin(server.secrets)
