@@ -1,0 +1,6 @@
+loguru
+mcp
+msgraph-core
+pydantic
+httpx
+pyyaml

@@ -32,7 +32,14 @@ class CoreasonConnectServer(Server):
         name: str = "coreason-connect",
         version: str = "0.1.0",
     ) -> None:
-        """Initialize the MCP Server."""
+        """Initialize the MCP Server.
+
+        Args:
+            config: Configuration for the application. Defaults to standard AppConfig.
+            secrets: Secrets provider for the application. Defaults to EnvSecretsProvider.
+            name: Name of the server. Defaults to "coreason-connect".
+            version: Version of the server. Defaults to "0.1.0".
+        """
         super().__init__(name)
         self.version = version
 
@@ -73,13 +80,25 @@ class CoreasonConnectServer(Server):
                 logger.error(f"Failed to get tools from plugin '{plugin_id}': {e}")
 
     async def _list_tools_handler(self) -> list[types.Tool]:
-        """Handler for listing tools."""
+        """Handler for listing tools.
+
+        Returns:
+            A list of Tool objects from all registered plugins.
+        """
         return [tool_def.tool for tool_def in self.tool_registry.values()]
 
     async def _call_tool_handler(
         self, name: str, arguments: dict[str, Any]
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-        """Handler for calling tools."""
+        """Handler for calling tools.
+
+        Args:
+            name: The name of the tool to execute.
+            arguments: A dictionary of arguments for the tool.
+
+        Returns:
+            A list containing the execution result as text content.
+        """
         plugin = self.plugin_registry.get(name)
         tool_def = self.tool_registry.get(name)
 
