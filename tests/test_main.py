@@ -8,8 +8,46 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
-from coreason_connect.main import hello_world
+import asyncio
+from unittest.mock import patch
+
+import pytest
+
+from coreason_connect.main import hello_world, main
 
 
-def test_hello_world() -> None:
-    assert hello_world() == "Hello World!"
+@pytest.mark.asyncio
+async def test_hello_world() -> None:
+    """Test that hello_world initializes server and handles cancellation."""
+    # Mock AppConfig and CoreasonConnectServer to avoid side effects
+    with (
+        patch("coreason_connect.main.AppConfig") as MockConfig,
+        patch("coreason_connect.main.CoreasonConnectServer") as MockServer,
+        patch("asyncio.sleep", side_effect=asyncio.CancelledError) as mock_sleep,
+    ):
+        mock_server_instance = MockServer.return_value
+        mock_server_instance.name = "TestServer"
+        mock_server_instance.version = "0.0.0"
+
+        # Run hello_world, which should catch CancelledError and exit
+        await hello_world()
+
+        # Verification
+        MockConfig.assert_called_once()
+        MockServer.assert_called_once()
+        mock_sleep.assert_called_once()
+
+
+def test_main() -> None:
+    """Test the main entry point."""
+    with patch("coreason_connect.main.asyncio.run") as mock_run:
+        main()
+        mock_run.assert_called_once()
+
+
+def test_main_keyboard_interrupt() -> None:
+    """Test that main handles KeyboardInterrupt gracefully."""
+    with patch("coreason_connect.main.asyncio.run", side_effect=KeyboardInterrupt) as mock_run:
+        # Should not raise exception
+        main()
+        mock_run.assert_called_once()

@@ -23,7 +23,22 @@ from coreason_connect.utils.logger import logger
 
 
 class CoreasonConnectServer(Server):
-    """The MCP Host that aggregates tools and plugins."""
+    """The MCP Host that aggregates tools and plugins.
+
+    This server is responsible for:
+    1. Loading plugins via the PluginLoader.
+    2. Aggregating tools from all loaded plugins.
+    3. Handling MCP tool listing and execution requests.
+    4. Enforcing the "Spend Gate" for consequential actions.
+
+    Attributes:
+        config: Application configuration.
+        secrets: Secrets provider.
+        plugin_loader: Component to load plugins.
+        plugins: Dictionary of loaded plugins by ID.
+        plugin_registry: Dictionary of plugins mapped by tool name.
+        tool_registry: Dictionary of tool definitions mapped by tool name.
+    """
 
     def __init__(
         self,
@@ -83,7 +98,7 @@ class CoreasonConnectServer(Server):
         """Handler for listing tools.
 
         Returns:
-            A list of Tool objects from all registered plugins.
+            list[types.Tool]: A list of Tool objects from all registered plugins.
         """
         return [tool_def.tool for tool_def in self.tool_registry.values()]
 
@@ -92,12 +107,15 @@ class CoreasonConnectServer(Server):
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
         """Handler for calling tools.
 
+        This method routes the execution to the appropriate plugin, enforcing
+        the "Spend Gate" check for consequential tools.
+
         Args:
             name: The name of the tool to execute.
             arguments: A dictionary of arguments for the tool.
 
         Returns:
-            A list containing the execution result as text content.
+            list[types.Content]: A list containing the execution result as text content.
         """
         plugin = self.plugin_registry.get(name)
         tool_def = self.tool_registry.get(name)

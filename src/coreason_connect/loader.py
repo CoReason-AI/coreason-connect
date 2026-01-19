@@ -29,7 +29,7 @@ def temporary_sys_path(path: str) -> Generator[None, None, None]:
         path: The path to add to sys.path.
 
     Yields:
-        None
+        None: Yields control back to the caller.
     """
     sys.path.insert(0, path)
     try:
@@ -57,7 +57,8 @@ class PluginLoader:
         """Load all configured plugins.
 
         Returns:
-            A dictionary mapping plugin IDs to their ConnectorProtocol implementation instances.
+            dict[str, ConnectorProtocol]: A dictionary mapping plugin IDs to their
+            ConnectorProtocol implementation instances.
         """
         for plugin_conf in self.config.plugins:
             try:
@@ -86,7 +87,7 @@ class PluginLoader:
             config: The configuration for the plugin.
 
         Returns:
-            An instance of the plugin's ConnectorProtocol implementation.
+            ConnectorProtocol: An instance of the plugin's ConnectorProtocol implementation.
 
         Raises:
             ImportError: If the plugin module cannot be found.
@@ -120,7 +121,7 @@ class PluginLoader:
             config: The configuration for the plugin.
 
         Returns:
-            An instance of the plugin's ConnectorProtocol implementation.
+            ConnectorProtocol: An instance of the plugin's ConnectorProtocol implementation.
 
         Raises:
             ValueError: If the plugin configuration is invalid or the path is unsafe.
