@@ -279,3 +279,24 @@ def test_get_build_logs_complex_scenario(gitops_plugin: GitOpsConnector) -> None
     # This test verifies behavior: it should find 1 failure.
     assert len(result["logs"]) == 1
     assert result["logs"][0]["name"] == "integration_test"
+
+
+def test_create_pr_unexpected_response(gitops_plugin: GitOpsConnector) -> None:
+    """Test create_pr where API returns success but unexpected JSON."""
+    mock_response = Mock()
+    mock_response.status_code = 201
+    mock_response.json.return_value = {"something": "else"}
+    mock_response.raise_for_status = Mock()
+
+    gitops_plugin.client.post = Mock(return_value=mock_response)  # type: ignore
+
+    args = {
+        "repo": "owner/repo",
+        "branch": "feature-branch",
+        "changes": "fix: bug",
+        "title": "Fix bug",
+    }
+    result = gitops_plugin.execute("git_create_pr", args)
+
+    # Should return the dict as-is
+    assert result == {"something": "else"}
