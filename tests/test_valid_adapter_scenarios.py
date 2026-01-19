@@ -23,6 +23,7 @@ from tests.test_loader import MockSecrets
 def mock_secrets() -> SecretsProvider:
     return MockSecrets()
 
+
 @pytest.fixture
 def valid_plugin(mock_secrets: SecretsProvider) -> Any:
     """Load and return the valid-plugin instance."""
@@ -32,6 +33,7 @@ def valid_plugin(mock_secrets: SecretsProvider) -> Any:
     loader = PluginLoader(config, mock_secrets)
     plugins = loader.load_all()
     return plugins["valid-plugin"]
+
 
 def test_valid_adapter_extraneous_arguments(valid_plugin: Any) -> None:
     """
@@ -44,6 +46,7 @@ def test_valid_adapter_extraneous_arguments(valid_plugin: Any) -> None:
     # Expect success (dictionaries in Python ignore extra keys unless validated strictly)
     # The adapter implementation just returns {"data": "test_data"} ignoring args
     assert result == {"data": "test_data"}
+
 
 def test_valid_adapter_sequential_execution(valid_plugin: Any) -> None:
     """
@@ -60,6 +63,7 @@ def test_valid_adapter_sequential_execution(valid_plugin: Any) -> None:
     # 3. Check Import again (should still be true)
     loaded_again = valid_plugin.execute("check_import")
     assert loaded_again is True
+
 
 def test_valid_adapter_unknown_tool(valid_plugin: Any) -> None:
     """
