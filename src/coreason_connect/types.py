@@ -13,8 +13,7 @@ from pydantic import BaseModel
 
 
 class ToolExecutionError(Exception):
-    """
-    Raised when a tool execution fails in a way that should be reported to the LLM.
+    """Raised when a tool execution fails in a way that should be reported to the LLM.
 
     Attributes:
         message: The human-readable error message.
@@ -31,8 +30,7 @@ class ToolExecutionError(Exception):
 
 
 class ToolDefinition(BaseModel):
-    """
-    Internal definition of a tool, including its MCP specification and operational flags.
+    """Internal definition of a tool, including its MCP specification and operational flags.
 
     Attributes:
         name: The name of the tool (must match tool.name).

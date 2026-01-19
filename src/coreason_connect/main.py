@@ -8,9 +8,45 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
+import asyncio
+from contextlib import suppress
+
+from coreason_connect.config import AppConfig
+from coreason_connect.server import CoreasonConnectServer
 from coreason_connect.utils.logger import logger
 
 
-def hello_world() -> str:
-    logger.info("Hello World!")
-    return "Hello World!"
+async def hello_world() -> None:
+    """Run the Coreason Connect server.
+
+    This function initializes the server configuration, starts the
+    CoreasonConnectServer, and keeps it running indefinitely.
+    """
+    logger.info("Starting Coreason Connect...")
+    config = AppConfig()
+    server = CoreasonConnectServer(config)
+
+    # In a real app, we would attach this to a transport (stdio or SSE)
+    # For now, we just simulate running
+    logger.info(f"Server '{server.name}' v{server.version} is ready.")
+
+    # Keep alive loop simulation
+    try:
+        while True:
+            await asyncio.sleep(3600)
+    except asyncio.CancelledError:
+        logger.info("Shutting down...")
+
+
+def main() -> None:
+    """Entry point for the application.
+
+    Sets up the asyncio event loop and runs the hello_world function.
+    Handles keyboard interrupts gracefully.
+    """
+    with suppress(KeyboardInterrupt):
+        asyncio.run(hello_world())
+
+
+if __name__ == "__main__":
+    main()

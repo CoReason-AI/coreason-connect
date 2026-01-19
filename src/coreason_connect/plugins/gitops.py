@@ -51,7 +51,7 @@ class GitOpsConnector(ConnectorProtocol):
         """Return a list of available tools.
 
         Returns:
-            A list of ToolDefinition objects.
+            list[ToolDefinition]: A list of ToolDefinition objects.
         """
         return [
             ToolDefinition(
@@ -100,7 +100,7 @@ class GitOpsConnector(ConnectorProtocol):
             arguments: A dictionary of arguments for the tool.
 
         Returns:
-            The result of the tool execution.
+            Any: The result of the tool execution.
 
         Raises:
             ToolExecutionError: If the tool fails or is unknown.
@@ -129,7 +129,7 @@ class GitOpsConnector(ConnectorProtocol):
             args: Dictionary containing 'repo', 'branch', 'title', and optional 'body'.
 
         Returns:
-            The JSON response from the GitHub API.
+            dict[str, Any]: The JSON response from the GitHub API.
 
         Raises:
             ToolExecutionError: If required arguments are missing or API call fails.
@@ -168,7 +168,7 @@ class GitOpsConnector(ConnectorProtocol):
             args: Dictionary containing 'repo' and 'commit_sha'.
 
         Returns:
-            A dictionary with status and logs if found.
+            dict[str, Any]: A dictionary with status and logs if found.
 
         Raises:
             ToolExecutionError: If required arguments are missing or API call fails.
