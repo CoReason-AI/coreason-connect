@@ -23,7 +23,14 @@ from coreason_connect.utils.logger import logger
 
 @contextmanager
 def temporary_sys_path(path: str) -> Generator[None, None, None]:
-    """Temporarily add a path to sys.path."""
+    """Temporarily add a path to sys.path.
+
+    Args:
+        path: The path to add to sys.path.
+
+    Yields:
+        None
+    """
     sys.path.insert(0, path)
     try:
         yield
@@ -36,12 +43,22 @@ class PluginLoader:
     """Handles dynamic loading of plugins."""
 
     def __init__(self, config: AppConfig, secrets: SecretsProvider) -> None:
+        """Initialize the PluginLoader.
+
+        Args:
+            config: The application configuration.
+            secrets: The secrets provider for injecting into plugins.
+        """
         self.config = config
         self.secrets = secrets
         self.plugins: dict[str, ConnectorProtocol] = {}
 
     def load_all(self) -> dict[str, ConnectorProtocol]:
-        """Load all configured plugins."""
+        """Load all configured plugins.
+
+        Returns:
+            A dictionary mapping plugin IDs to their ConnectorProtocol implementation instances.
+        """
         for plugin_conf in self.config.plugins:
             try:
                 if plugin_conf.type == "local_python":
@@ -63,7 +80,18 @@ class PluginLoader:
         return self.plugins
 
     def _load_native(self, config: PluginConfig) -> ConnectorProtocol:
-        """Load a built-in native plugin."""
+        """Load a built-in native plugin.
+
+        Args:
+            config: The configuration for the plugin.
+
+        Returns:
+            An instance of the plugin's ConnectorProtocol implementation.
+
+        Raises:
+            ImportError: If the plugin module cannot be found.
+            ValueError: If the module does not contain a ConnectorProtocol implementation.
+        """
         # Normalize the ID to a valid python module name (e.g., "ms365" -> "ms365", "my-plugin" -> "my_plugin")
         module_name = config.id.replace("-", "_")
         full_module_name = f"coreason_connect.plugins.{module_name}"
@@ -86,6 +114,19 @@ class PluginLoader:
         return connector_class(self.secrets)
 
     def _load_local_python(self, config: PluginConfig) -> ConnectorProtocol:
+        """Load a local Python plugin from disk.
+
+        Args:
+            config: The configuration for the plugin.
+
+        Returns:
+            An instance of the plugin's ConnectorProtocol implementation.
+
+        Raises:
+            ValueError: If the plugin configuration is invalid or the path is unsafe.
+            FileNotFoundError: If the plugin file does not exist.
+            ImportError: If the plugin module cannot be loaded.
+        """
         if not config.path:
             raise ValueError(f"Plugin '{config.id}' is missing 'path'")
 
