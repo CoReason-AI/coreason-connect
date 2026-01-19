@@ -10,9 +10,10 @@
 
 from typing import Any
 
+from mcp.types import Tool
+
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
 from coreason_connect.types import ToolDefinition
-from mcp.types import Tool
 
 
 class MockConsequentialPlugin(ConnectorProtocol):

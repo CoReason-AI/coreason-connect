@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
+
 from coreason_connect.config import load_config
 
 # We assume the "Safe Zone" is the project root, which we can approximate by os.getcwd()

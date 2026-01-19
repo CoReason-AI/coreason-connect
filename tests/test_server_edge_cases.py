@@ -12,10 +12,11 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from mcp.types import Tool
+
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
 from coreason_connect.server import CoreasonConnectServer
 from coreason_connect.types import ToolDefinition
-from mcp.types import Tool
 
 
 @pytest.fixture

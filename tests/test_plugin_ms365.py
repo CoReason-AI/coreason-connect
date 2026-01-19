@@ -12,10 +12,11 @@ from typing import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
+from httpx import HTTPStatusError, Request, Response
+
 from coreason_connect.interfaces import SecretsProvider
 from coreason_connect.plugins.ms365 import MS365Connector
 from coreason_connect.types import ToolExecutionError
-from httpx import HTTPStatusError, Request, Response
 
 
 @pytest.fixture

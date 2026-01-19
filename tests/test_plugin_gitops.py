@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, Mock
 
 import httpx
 import pytest
+
 from coreason_connect.interfaces import SecretsProvider
 from coreason_connect.plugins.gitops import GitOpsConnector
 from coreason_connect.types import ToolExecutionError
@@ -190,9 +191,7 @@ def test_get_build_logs_no_failures(gitops_plugin: GitOpsConnector) -> None:
 def test_create_pr_empty_strings(gitops_plugin: GitOpsConnector) -> None:
     """Test validation with empty strings."""
     with pytest.raises(ToolExecutionError) as excinfo:
-        gitops_plugin.execute(
-            "git_create_pr", {"repo": "", "branch": "", "title": "", "changes": ""}
-        )
+        gitops_plugin.execute("git_create_pr", {"repo": "", "branch": "", "title": "", "changes": ""})
     assert "Missing required arguments" in str(excinfo.value)
 
 
@@ -247,18 +246,22 @@ def test_get_build_logs_complex_scenario(gitops_plugin: GitOpsConnector) -> None
         check_runs.append({"status": "completed", "conclusion": "success", "name": f"test_{i}"})
 
     # 2 failures
-    check_runs.append({
-        "status": "completed",
-        "conclusion": "failure",
-        "name": "integration_test",
-        "output": {"summary": "Failed to connect to DB"}
-    })
-    check_runs.append({
-        "status": "completed",
-        "conclusion": "timed_out", # Should be treated as failure? Code currently checks for "failure" explicitly
-        "name": "e2e_test",
-        "output": {"summary": "Timeout"}
-    })
+    check_runs.append(
+        {
+            "status": "completed",
+            "conclusion": "failure",
+            "name": "integration_test",
+            "output": {"summary": "Failed to connect to DB"},
+        }
+    )
+    check_runs.append(
+        {
+            "status": "completed",
+            "conclusion": "timed_out",  # Should be treated as failure? Code currently checks for "failure" explicitly
+            "name": "e2e_test",
+            "output": {"summary": "Timeout"},
+        }
+    )
 
     mock_response = Mock()
     mock_response.status_code = 200

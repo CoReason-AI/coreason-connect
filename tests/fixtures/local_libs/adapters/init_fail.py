@@ -10,8 +10,9 @@
 
 from typing import Any
 
-from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
 from mcp.types import Tool
+
+from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
 
 
 class InitFailAdapter(ConnectorProtocol):
