@@ -147,10 +147,11 @@ class GitOpsConnector(ConnectorProtocol):
         logs = []
         for run in data.get("check_runs", []):
             if run.get("status") == "completed" and run.get("conclusion") == "failure":
+                output_obj = run.get("output") or {}
                 logs.append(
                     {
                         "name": run.get("name"),
-                        "output": run.get("output", {}).get("summary", "No summary available"),
+                        "output": output_obj.get("summary", "No summary available"),
                     }
                 )
 

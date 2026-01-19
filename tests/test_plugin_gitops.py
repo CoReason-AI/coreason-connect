@@ -184,3 +184,94 @@ def test_get_build_logs_no_failures(gitops_plugin: GitOpsConnector) -> None:
 
     assert result["status"] == "success"
     assert "No failed checks" in result["message"]
+
+
+def test_create_pr_empty_strings(gitops_plugin: GitOpsConnector) -> None:
+    """Test validation with empty strings."""
+    with pytest.raises(ToolExecutionError) as excinfo:
+        gitops_plugin.execute(
+            "git_create_pr", {"repo": "", "branch": "", "title": "", "changes": ""}
+        )
+    assert "Missing required arguments" in str(excinfo.value)
+
+
+def test_get_build_logs_malformed_response(gitops_plugin: GitOpsConnector) -> None:
+    """Test handling of unexpected API response structure."""
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {}  # Missing "check_runs"
+    mock_response.raise_for_status = Mock()
+
+    gitops_plugin.client.get = Mock(return_value=mock_response)  # type: ignore
+
+    args = {"repo": "owner/repo", "commit_sha": "abcdef123456"}
+    result = gitops_plugin.execute("git_get_build_logs", args)
+
+    # Should default to success with no failures found (safe fallback)
+    assert result["status"] == "success"
+    assert "No failed checks" in result["message"]
+
+
+def test_get_build_logs_null_output(gitops_plugin: GitOpsConnector) -> None:
+    """Test check run with missing or null output."""
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "check_runs": [
+            {
+                "status": "completed",
+                "conclusion": "failure",
+                "name": "build_without_logs",
+                "output": None,  # Null output
+            }
+        ]
+    }
+    mock_response.raise_for_status = Mock()
+
+    gitops_plugin.client.get = Mock(return_value=mock_response)  # type: ignore
+
+    args = {"repo": "owner/repo", "commit_sha": "abcdef123456"}
+    result = gitops_plugin.execute("git_get_build_logs", args)
+
+    assert result["status"] == "failure"
+    assert result["logs"][0]["name"] == "build_without_logs"
+    assert result["logs"][0]["output"] == "No summary available"
+
+
+def test_get_build_logs_complex_scenario(gitops_plugin: GitOpsConnector) -> None:
+    """Test a large response with mixed statuses and robust parsing."""
+    check_runs = []
+    # 50 passing runs
+    for i in range(50):
+        check_runs.append({"status": "completed", "conclusion": "success", "name": f"test_{i}"})
+
+    # 2 failures
+    check_runs.append({
+        "status": "completed",
+        "conclusion": "failure",
+        "name": "integration_test",
+        "output": {"summary": "Failed to connect to DB"}
+    })
+    check_runs.append({
+        "status": "completed",
+        "conclusion": "timed_out", # Should be treated as failure? Code currently checks for "failure" explicitly
+        "name": "e2e_test",
+        "output": {"summary": "Timeout"}
+    })
+
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"check_runs": check_runs}
+    mock_response.raise_for_status = Mock()
+
+    gitops_plugin.client.get = Mock(return_value=mock_response)  # type: ignore
+
+    args = {"repo": "owner/repo", "commit_sha": "abcdef123456"}
+    result = gitops_plugin.execute("git_get_build_logs", args)
+
+    assert result["status"] == "failure"
+    # Current implementation only checks for conclusion == "failure".
+    # Timed_out is not explicitly handled as failure in the code.
+    # This test verifies behavior: it should find 1 failure.
+    assert len(result["logs"]) == 1
+    assert result["logs"][0]["name"] == "integration_test"
