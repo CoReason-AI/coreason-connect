@@ -22,6 +22,11 @@ class MS365Connector(ConnectorProtocol):
     """Native plugin for Microsoft 365 integration using msgraph-core."""
 
     def __init__(self, secrets: SecretsProvider) -> None:
+        """Initialize the MS365 connector.
+
+        Args:
+            secrets: The secrets provider for obtaining credentials.
+        """
         super().__init__(secrets)
         # In a real implementation, we would set up the authentication provider here
         # using secrets (e.g., Azure Identity credentials).
@@ -36,6 +41,11 @@ class MS365Connector(ConnectorProtocol):
             raise
 
     def get_tools(self) -> list[ToolDefinition]:
+        """Return a list of available tools.
+
+        Returns:
+            A list of ToolDefinition objects.
+        """
         return [
             ToolDefinition(
                 name="find_meeting_slot",
@@ -93,6 +103,18 @@ class MS365Connector(ConnectorProtocol):
         ]
 
     def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+        """Execute an MS365 tool.
+
+        Args:
+            tool_name: The name of the tool to execute.
+            arguments: A dictionary of arguments for the tool.
+
+        Returns:
+            The result of the tool execution.
+
+        Raises:
+            ToolExecutionError: If the tool fails or is unknown.
+        """
         args = arguments or {}
         try:
             if tool_name == "find_meeting_slot":
@@ -109,6 +131,14 @@ class MS365Connector(ConnectorProtocol):
             raise ToolExecutionError(f"MS365 error: {str(e)}") from e
 
     def _find_meeting_slot(self, args: dict[str, Any]) -> Any:
+        """Find meeting times.
+
+        Args:
+            args: Dictionary containing 'attendees' and 'duration'.
+
+        Returns:
+            The JSON response from the Graph API.
+        """
         attendees = args.get("attendees", [])
         duration = args.get("duration", "PT30M")
 
@@ -128,9 +158,17 @@ class MS365Connector(ConnectorProtocol):
         # This is a synchronous call using the wrapped httpx client
         response = self.client.post("/me/findMeetingTimes", json=payload)
         response.raise_for_status()
-        return response.json()
+        return dict(response.json())
 
     def _draft_email(self, args: dict[str, Any]) -> Any:
+        """Draft an email.
+
+        Args:
+            args: Dictionary containing 'to', 'subject', and 'body'.
+
+        Returns:
+            The JSON response from the Graph API.
+        """
         to_email = args.get("to")
         subject = args.get("subject")
         body = args.get("body")
@@ -143,9 +181,20 @@ class MS365Connector(ConnectorProtocol):
 
         response = self.client.post("/me/messages", json=payload)
         response.raise_for_status()
-        return response.json()
+        return dict(response.json())
 
     def _send_email(self, args: dict[str, Any]) -> Any:
+        """Send a draft email.
+
+        Args:
+            args: Dictionary containing 'id' of the message.
+
+        Returns:
+            A status dictionary.
+
+        Raises:
+            ToolExecutionError: If 'id' is missing.
+        """
         message_id = args.get("id")
         if not message_id:
             raise ToolExecutionError("Message ID is required")

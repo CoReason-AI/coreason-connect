@@ -19,12 +19,17 @@ from coreason_connect.utils.logger import logger
 
 
 class GitOpsConnector(ConnectorProtocol):
-    """
-    Native plugin for DevOps operations using GitHub/Git APIs.
+    """Native plugin for DevOps operations using GitHub/Git APIs.
+
     Implements the 'Self-healing code and configuration' capability.
     """
 
     def __init__(self, secrets: SecretsProvider) -> None:
+        """Initialize the GitOps connector.
+
+        Args:
+            secrets: The secrets provider for obtaining the GITHUB_TOKEN.
+        """
         super().__init__(secrets)
         # In a real implementation, we would fetch the GitHub Token.
         # For now, we assume it's available or use a placeholder.
@@ -43,6 +48,11 @@ class GitOpsConnector(ConnectorProtocol):
         self.client = httpx.Client(base_url=self.base_url, headers=self.headers)
 
     def get_tools(self) -> list[ToolDefinition]:
+        """Return a list of available tools.
+
+        Returns:
+            A list of ToolDefinition objects.
+        """
         return [
             ToolDefinition(
                 name="git_create_pr",
@@ -83,6 +93,18 @@ class GitOpsConnector(ConnectorProtocol):
         ]
 
     def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+        """Execute a GitOps tool.
+
+        Args:
+            tool_name: The name of the tool to execute.
+            arguments: A dictionary of arguments for the tool.
+
+        Returns:
+            The result of the tool execution.
+
+        Raises:
+            ToolExecutionError: If the tool fails or is unknown.
+        """
         args = arguments or {}
         try:
             if tool_name == "git_create_pr":
@@ -101,6 +123,17 @@ class GitOpsConnector(ConnectorProtocol):
             raise ToolExecutionError(f"GitOps error: {str(e)}") from e
 
     def _create_pr(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Create a Pull Request.
+
+        Args:
+            args: Dictionary containing 'repo', 'branch', 'title', and optional 'body'.
+
+        Returns:
+            The JSON response from the GitHub API.
+
+        Raises:
+            ToolExecutionError: If required arguments are missing or API call fails.
+        """
         repo = args.get("repo")
         branch = args.get("branch")
         title = args.get("title")
@@ -129,6 +162,17 @@ class GitOpsConnector(ConnectorProtocol):
         return dict(response.json())
 
     def _get_build_logs(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Get build logs for a failed commit.
+
+        Args:
+            args: Dictionary containing 'repo' and 'commit_sha'.
+
+        Returns:
+            A dictionary with status and logs if found.
+
+        Raises:
+            ToolExecutionError: If required arguments are missing or API call fails.
+        """
         repo = args.get("repo")
         commit_sha = args.get("commit_sha")
 
