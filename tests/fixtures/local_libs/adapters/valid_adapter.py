@@ -10,6 +10,8 @@
 
 from typing import Any
 
+from mcp.types import Tool
+
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
 from coreason_connect.types import ToolDefinition
 
@@ -26,9 +28,20 @@ class ValidAdapter(ConnectorProtocol):
         self.client_loaded = rightfind_client is not None
 
     def get_tools(self) -> list[ToolDefinition]:
-        return []
+        return [
+            ToolDefinition(
+                name="get_data",
+                tool=Tool(
+                    name="get_data",
+                    description="Retrieves data",
+                    inputSchema={"type": "object", "properties": {}},
+                ),
+            )
+        ]
 
     def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
         if tool_name == "check_import":
             return self.client_loaded
+        if tool_name == "get_data":
+            return {"data": "test_data"}
         return "executed"
