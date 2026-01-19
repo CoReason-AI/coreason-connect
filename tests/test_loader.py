@@ -65,6 +65,19 @@ def test_load_valid_plugin(config_path: str, mock_secrets: SecretsProvider) -> N
     assert is_loaded is True
 
 
+def test_valid_plugin_has_get_data_tool(config_path: str, mock_secrets: SecretsProvider) -> None:
+    """Test that the valid plugin exposes the 'get_data' tool."""
+    config = load_config(config_path)
+    loader = PluginLoader(config, mock_secrets)
+
+    plugins = loader.load_all()
+    plugin = plugins["valid-plugin"]
+
+    tools = plugin.get_tools()
+    tool_names = [t.name for t in tools]
+    assert "get_data" in tool_names
+
+
 def test_load_invalid_plugin(config_path: str, mock_secrets: SecretsProvider) -> None:
     """Test that an invalid plugin (wrong interface) is gracefully skipped."""
     config = load_config(config_path)
