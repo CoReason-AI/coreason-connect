@@ -10,10 +10,9 @@
 
 from typing import Any
 
-from mcp.types import Tool
-
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
 from coreason_connect.types import ToolDefinition, ToolExecutionError
+from mcp.types import Tool
 
 # This import relies on PluginLoader injecting .../local_libs into sys.path
 try:

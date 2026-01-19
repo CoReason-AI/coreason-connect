@@ -15,7 +15,6 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
-
 from coreason_connect.config import load_config
 from coreason_connect.interfaces import SecretsProvider
 from coreason_connect.loader import PluginLoader

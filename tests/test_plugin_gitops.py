@@ -42,8 +42,8 @@ def test_get_tools(gitops_plugin: GitOpsConnector) -> None:
     assert "git_get_build_logs" in names
 
     pr_tool = next(t for t in tools if t.name == "git_create_pr")
-    assert "repo" in pr_tool.tool.inputSchema["properties"]  # type: ignore
-    assert "branch" in pr_tool.tool.inputSchema["properties"]  # type: ignore
+    assert "repo" in pr_tool.tool.inputSchema["properties"]
+    assert "branch" in pr_tool.tool.inputSchema["properties"]
 
 
 def test_create_pr_success(gitops_plugin: GitOpsConnector) -> None:
@@ -119,7 +119,7 @@ def test_get_build_logs_success(gitops_plugin: GitOpsConnector) -> None:
                 "status": "completed",
                 "conclusion": "success",
                 "name": "lint",
-            }
+            },
         ]
     }
     mock_response.raise_for_status = Mock()

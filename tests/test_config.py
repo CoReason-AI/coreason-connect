@@ -14,7 +14,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
-
 from coreason_connect.config import AppConfig, load_config
 
 

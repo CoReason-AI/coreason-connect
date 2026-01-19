@@ -126,7 +126,7 @@ class GitOpsConnector(ConnectorProtocol):
 
         response = self.client.post(url, json=payload)
         response.raise_for_status()
-        return response.json()
+        return dict(response.json())
 
     def _get_build_logs(self, args: dict[str, Any]) -> dict[str, Any]:
         repo = args.get("repo")

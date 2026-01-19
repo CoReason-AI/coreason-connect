@@ -11,9 +11,9 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
 from coreason_connect.server import CoreasonConnectServer
+
 from tests.fixtures.mock_plugin import MockPlugin
 
 
