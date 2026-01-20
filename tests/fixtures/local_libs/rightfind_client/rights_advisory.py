@@ -8,15 +8,12 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
-"""
-coreason-connect: The secure execution gateway for the CoReason ecosystem.
-"""
 
-__version__ = "0.1.0"
-__author__ = "Gowtham A Rao"
-__email__ = "gowtham.rao@coreason.ai"
+class RightsAdvisoryClient:
+    def __init__(self, username=None, password=None):
+        pass
 
-from .main import hello_world
-from .server import CoreasonConnectService, CoreasonConnectServiceAsync
-
-__all__ = ["hello_world", "CoreasonConnectService", "CoreasonConnectServiceAsync"]
+    def check_rights(self, doi):
+        if doi == "10.1000/denied":
+            return "DENY"
+        return "GRANT"
