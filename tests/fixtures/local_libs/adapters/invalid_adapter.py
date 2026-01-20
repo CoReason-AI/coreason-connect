@@ -8,15 +8,19 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
-"""
-coreason-connect: The secure execution gateway for the CoReason ecosystem.
-"""
+from typing import Any
 
-__version__ = "0.1.0"
-__author__ = "Gowtham A Rao"
-__email__ = "gowtham.rao@coreason.ai"
+from coreason_connect.interfaces import SecretsProvider
 
-from .main import hello_world
-from .server import CoreasonConnectService, CoreasonConnectServiceAsync
 
-__all__ = ["hello_world", "CoreasonConnectService", "CoreasonConnectServiceAsync"]
+class InvalidAdapter:
+    """Does not inherit from ConnectorProtocol"""
+
+    def __init__(self, secrets: SecretsProvider):
+        pass
+
+    def get_tools(self) -> list[Any]:
+        return []
+
+    def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+        return "invalid"

@@ -19,7 +19,14 @@ from coreason_connect.utils.logger import logger
 
 
 def force_str(v: Any) -> str:
-    """Force conversion to string."""
+    """Force conversion of a value to a string.
+
+    Args:
+        v: The value to convert.
+
+    Returns:
+        str: The string representation of the value.
+    """
     return str(v)
 
 
@@ -27,7 +34,17 @@ Stringified = Annotated[str, BeforeValidator(force_str)]
 
 
 class PluginConfig(BaseModel):
-    """Configuration for a single plugin."""
+    """Configuration for a single plugin.
+
+    Attributes:
+        id: Unique identifier for the plugin.
+        type: Type of the plugin (e.g., 'local_python', 'openapi', 'native').
+        path: Path to the plugin source or spec.
+        description: Human-readable description of the plugin.
+        env_vars: Environment variables required by the plugin.
+        base_url: Base URL for OpenAPI plugins.
+        scopes: OAuth scopes for native plugins.
+    """
 
     id: str = Field(..., description="Unique identifier for the plugin")
     type: str = Field(..., description="Type of the plugin (local_python, openapi, native)")
@@ -39,16 +56,59 @@ class PluginConfig(BaseModel):
     base_url: str | None = Field(None, description="Base URL for OpenAPI plugins")
     scopes: list[str] = Field(default_factory=list, description="OAuth scopes for native plugins")
 
+    @field_validator("path")
+    @classmethod
+    def validate_path_safety(cls, v: str | None) -> str | None:
+        """Ensure the plugin path is within the safe execution zone.
+
+        Args:
+            v: The path string to validate.
+
+        Returns:
+            str | None: The validated path, or None.
+
+        Raises:
+            ValueError: If the path is outside the safe zone or invalid.
+        """
+        if v is None:
+            return v
+
+        safe_zone = Path(os.getcwd()).resolve()
+        try:
+            # resolve() handles '..' and symlinks
+            target_path = Path(v).resolve()
+        except Exception as e:
+            raise ValueError(f"Invalid path resolution: {e}") from e
+
+        if not target_path.is_relative_to(safe_zone):
+            raise ValueError(f"Plugin path must be within the safe zone ({safe_zone})")
+
+        return v
+
 
 class AppConfig(BaseModel):
-    """Root configuration for the application."""
+    """Root configuration for the application.
+
+    Attributes:
+        plugins: List of configured plugins.
+    """
 
     plugins: list[PluginConfig] = Field(default_factory=list, description="List of configured plugins")
 
     @field_validator("plugins")
     @classmethod
     def check_unique_ids(cls, v: list[PluginConfig]) -> list[PluginConfig]:
-        """Ensure that all plugin IDs are unique."""
+        """Ensure that all plugin IDs are unique.
+
+        Args:
+            v: List of PluginConfig objects.
+
+        Returns:
+            list[PluginConfig]: The validated list of plugins.
+
+        Raises:
+            ValueError: If duplicate plugin IDs are found.
+        """
         ids = [p.id for p in v]
         if len(ids) != len(set(ids)):
             duplicates = set([x for x in ids if ids.count(x) > 1])
@@ -57,19 +117,19 @@ class AppConfig(BaseModel):
 
 
 def load_config(config_path: str | Path | None = None) -> AppConfig:
-    """
-    Load the application configuration from a YAML file.
+    """Load the application configuration from a YAML file.
 
     Args:
-        config_path: Path to the configuration file. If None, checks COREASON_CONFIG_PATH
-                     env var or defaults to ./connectors.yaml.
+        config_path: Path to the configuration file. If None, checks the
+            COREASON_CONFIG_PATH environment variable or defaults to
+            'connectors.yaml' in the current directory.
 
     Returns:
-        AppConfig: The parsed configuration.
+        AppConfig: The parsed application configuration.
 
     Raises:
         FileNotFoundError: If the configuration file does not exist.
-        ValueError: If the configuration file is invalid.
+        ValueError: If the configuration file is invalid or cannot be parsed.
     """
     if config_path is None:
         config_path = os.getenv("COREASON_CONFIG_PATH", "connectors.yaml")
