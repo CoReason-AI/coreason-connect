@@ -8,8 +8,9 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
-from typing import Any
+from typing import Any, Optional
 
+from coreason_identity.models import UserContext
 from mcp.types import Tool
 
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
@@ -75,7 +76,12 @@ class RightFindAdapter(ConnectorProtocol):
             ),
         ]
 
-    def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+    def execute(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any] | None = None,
+        user_context: Optional[UserContext] = None,
+    ) -> Any:
         args = arguments or {}
         try:
             if tool_name == "search_literature":

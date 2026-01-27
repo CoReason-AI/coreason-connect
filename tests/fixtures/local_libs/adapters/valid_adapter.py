@@ -8,8 +8,9 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
-from typing import Any
+from typing import Any, Optional
 
+from coreason_identity.models import UserContext
 from mcp.types import Tool
 
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
@@ -39,7 +40,12 @@ class ValidAdapter(ConnectorProtocol):
             )
         ]
 
-    def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+    def execute(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any] | None = None,
+        user_context: Optional[UserContext] = None,
+    ) -> Any:
         if tool_name == "check_import":
             return self.client_loaded
         if tool_name == "get_data":

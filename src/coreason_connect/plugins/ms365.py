@@ -8,8 +8,9 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
-from typing import Any
+from typing import Any, Optional
 
+from coreason_identity.models import UserContext
 from mcp.types import Tool
 from msgraph_core import APIVersion, GraphClientFactory
 
@@ -102,12 +103,18 @@ class MS365Connector(ConnectorProtocol):
             ),
         ]
 
-    def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+    def execute(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any] | None = None,
+        user_context: Optional[UserContext] = None,
+    ) -> Any:
         """Execute an MS365 tool.
 
         Args:
             tool_name: The name of the tool to execute.
             arguments: A dictionary of arguments for the tool.
+            user_context: The user context containing identity and tokens.
 
         Returns:
             Any: The result of the tool execution.
@@ -118,11 +125,11 @@ class MS365Connector(ConnectorProtocol):
         args = arguments or {}
         try:
             if tool_name == "find_meeting_slot":
-                return self._find_meeting_slot(args)
+                return self._find_meeting_slot(args, user_context)
             elif tool_name == "draft_email":
-                return self._draft_email(args)
+                return self._draft_email(args, user_context)
             elif tool_name == "send_email":
-                return self._send_email(args)
+                return self._send_email(args, user_context)
             else:
                 raise ToolExecutionError(f"Unknown tool: {tool_name}")
         except Exception as e:
@@ -130,11 +137,28 @@ class MS365Connector(ConnectorProtocol):
                 raise
             raise ToolExecutionError(f"MS365 error: {str(e)}") from e
 
-    def _find_meeting_slot(self, args: dict[str, Any]) -> Any:
+    def _get_request_headers(self, user_context: Optional[UserContext]) -> dict[str, str]:
+        """Get the headers for the request, injecting the token if available.
+
+        Args:
+            user_context: The user context containing identity and tokens.
+
+        Returns:
+            dict[str, str]: The headers dictionary.
+        """
+        headers = {}
+        if user_context and user_context.downstream_token:
+            headers["Authorization"] = f"Bearer {user_context.downstream_token.get_secret_value()}"
+        else:
+            logger.warning("Delegated Identity is missing; using Service Identity.")
+        return headers
+
+    def _find_meeting_slot(self, args: dict[str, Any], user_context: Optional[UserContext] = None) -> Any:
         """Find meeting times.
 
         Args:
             args: Dictionary containing 'attendees' and 'duration'.
+            user_context: The user context containing identity and tokens.
 
         Returns:
             Any: The JSON response from the Graph API.
@@ -156,15 +180,17 @@ class MS365Connector(ConnectorProtocol):
             "meetingDuration": duration,
         }
         # This is a synchronous call using the wrapped httpx client
-        response = self.client.post("/me/findMeetingTimes", json=payload)
+        headers = self._get_request_headers(user_context)
+        response = self.client.post("/me/findMeetingTimes", json=payload, headers=headers)
         response.raise_for_status()
         return dict(response.json())
 
-    def _draft_email(self, args: dict[str, Any]) -> Any:
+    def _draft_email(self, args: dict[str, Any], user_context: Optional[UserContext] = None) -> Any:
         """Draft an email.
 
         Args:
             args: Dictionary containing 'to', 'subject', and 'body'.
+            user_context: The user context containing identity and tokens.
 
         Returns:
             Any: The JSON response from the Graph API.
@@ -179,15 +205,17 @@ class MS365Connector(ConnectorProtocol):
             "toRecipients": [{"emailAddress": {"address": to_email}}],
         }
 
-        response = self.client.post("/me/messages", json=payload)
+        headers = self._get_request_headers(user_context)
+        response = self.client.post("/me/messages", json=payload, headers=headers)
         response.raise_for_status()
         return dict(response.json())
 
-    def _send_email(self, args: dict[str, Any]) -> Any:
+    def _send_email(self, args: dict[str, Any], user_context: Optional[UserContext] = None) -> Any:
         """Send a draft email.
 
         Args:
             args: Dictionary containing 'id' of the message.
+            user_context: The user context containing identity and tokens.
 
         Returns:
             dict[str, str]: A status dictionary.
@@ -199,7 +227,8 @@ class MS365Connector(ConnectorProtocol):
         if not message_id:
             raise ToolExecutionError("Message ID is required")
 
-        response = self.client.post(f"/me/messages/{message_id}/send")
+        headers = self._get_request_headers(user_context)
+        response = self.client.post(f"/me/messages/{message_id}/send", headers=headers)
         response.raise_for_status()
         # The send endpoint usually returns 202 Accepted and no content,
         # but we return a success message

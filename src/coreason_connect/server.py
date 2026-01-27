@@ -9,11 +9,12 @@
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
 import json
-from typing import Any
+from typing import Any, Optional
 
 import anyio
 import httpx
 import mcp.types as types
+from coreason_identity.models import UserContext
 from mcp.server import Server
 
 from coreason_connect.config import AppConfig
@@ -49,7 +50,7 @@ class CoreasonConnectServiceAsync(Server):
         secrets: SecretsProvider | None = None,
         client: httpx.AsyncClient | None = None,
         name: str = "coreason-connect",
-        version: str = "0.1.0",
+        version: str = "0.2.0",
     ) -> None:
         """Initialize the MCP Server.
 
@@ -58,7 +59,7 @@ class CoreasonConnectServiceAsync(Server):
             secrets: Secrets provider for the application. Defaults to EnvSecretsProvider.
             client: Optional httpx.AsyncClient for connection pooling.
             name: Name of the server. Defaults to "coreason-connect".
-            version: Version of the server. Defaults to "0.1.0".
+            version: Version of the server. Defaults to "0.2.0".
         """
         super().__init__(name)
         self.version = version
@@ -116,7 +117,12 @@ class CoreasonConnectServiceAsync(Server):
         """Public method to get all tools (wraps handler)."""
         return await self._list_tools_handler()
 
-    async def execute_tool(self, name: str, arguments: dict[str, Any]) -> Any:
+    async def execute_tool(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        user_context: Optional[UserContext] = None,
+    ) -> Any:
         """Public method to execute a tool (wraps handler logic).
 
         Note: This returns raw result or raises exception, unlike _call_tool_handler which returns MCP Content.
@@ -144,7 +150,7 @@ class CoreasonConnectServiceAsync(Server):
             return msg
 
         try:
-            return plugin.execute(name, arguments)
+            return plugin.execute(name, arguments, user_context=user_context)
         except Exception as e:
             # In library mode, we might want to propagate the exception or wrap it
             raise e
@@ -179,6 +185,26 @@ class CoreasonConnectServiceAsync(Server):
         if not plugin or not tool_def:
             return [types.TextContent(type="text", text=f"Error: Tool '{name}' not found.")]
 
+        # Extract UserContext from arguments if present
+        # coreason-mcp likely injects this as a hidden argument
+        user_context: Optional[UserContext] = None
+        # Check for common patterns for context injection
+        # We look for a dictionary that matches UserContext or a reserved key
+        if arguments and "user_context" in arguments:
+            try:
+                ctx_data = arguments.pop("user_context")
+                if isinstance(ctx_data, str):
+                    # Handle case where it might be a JSON string
+                    try:
+                        ctx_data = json.loads(ctx_data)
+                    except json.JSONDecodeError:
+                        logger.warning("Failed to decode user_context string")
+                        ctx_data = {}
+                if isinstance(ctx_data, dict):
+                    user_context = UserContext(**ctx_data)
+            except Exception as e:
+                logger.warning(f"Failed to deserialize user_context: {e}")
+
         # Spend Gate / Transactional Safety Check
         if tool_def.is_consequential:
             msg = f"Action suspended: Human approval required for {name}."
@@ -186,7 +212,7 @@ class CoreasonConnectServiceAsync(Server):
             return [types.TextContent(type="text", text=msg)]
 
         try:
-            result = plugin.execute(name, arguments)
+            result = plugin.execute(name, arguments, user_context=user_context)
             if isinstance(result, (dict, list)):
                 result_str = json.dumps(result)
             else:
@@ -212,7 +238,7 @@ class CoreasonConnectService:
         secrets: SecretsProvider | None = None,
         client: httpx.AsyncClient | None = None,
         name: str = "coreason-connect",
-        version: str = "0.1.0",
+        version: str = "0.2.0",
     ) -> None:
         self._async = CoreasonConnectServiceAsync(config, secrets, client, name, version)
 
@@ -228,6 +254,11 @@ class CoreasonConnectService:
         """Get all tools synchronously."""
         return anyio.run(self._async.get_all_tools)
 
-    def execute_tool(self, name: str, arguments: dict[str, Any]) -> Any:
+    def execute_tool(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        user_context: Optional[UserContext] = None,
+    ) -> Any:
         """Execute a tool synchronously."""
-        return anyio.run(self._async.execute_tool, name, arguments)
+        return anyio.run(self._async.execute_tool, name, arguments, user_context)
