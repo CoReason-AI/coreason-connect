@@ -9,10 +9,11 @@
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
 import json
-from typing import Any
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+from coreason_identity.models import UserContext
 from mcp.types import Tool
 
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
@@ -199,7 +200,12 @@ async def test_stateful_plugin_execution(server: CoreasonConnectServiceAsync, mo
                 )
             ]
 
-        def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+        def execute(
+            self,
+            tool_name: str,
+            arguments: dict[str, Any] | None = None,
+            user_context: Optional[UserContext] = None,
+        ) -> Any:
             self.count += 1
             return str(self.count)
 
@@ -216,6 +222,73 @@ async def test_stateful_plugin_execution(server: CoreasonConnectServiceAsync, mo
     result2 = await server._call_tool_handler("increment", {})
     text2 = result2[0].text  # type: ignore[union-attr]
     assert text2 == "2"
+
+
+@pytest.mark.asyncio
+async def test_call_tool_handler_with_user_context(
+    server: CoreasonConnectServiceAsync, mock_secrets: SecretsProvider
+) -> None:
+    """Test that user_context is extracted from arguments and passed to the plugin."""
+
+    class ContextPlugin(ConnectorProtocol):
+        def __init__(self, secrets: SecretsProvider) -> None:
+            super().__init__(secrets)
+
+        def get_tools(self) -> list[ToolDefinition]:
+            return [
+                ToolDefinition(
+                    name="check_context",
+                    tool=Tool(
+                        name="check_context",
+                        description="Checks if user_context is present",
+                        inputSchema={"type": "object", "properties": {}},
+                    ),
+                    is_consequential=False,
+                )
+            ]
+
+        def execute(
+            self,
+            tool_name: str,
+            arguments: dict[str, Any] | None = None,
+            user_context: Optional[UserContext] = None,
+        ) -> Any:
+            if user_context and user_context.user_id == "u1":
+                return "Context Received"
+            return "No Context"
+
+    plugin = ContextPlugin(mock_secrets)
+    server.plugins = {"context": plugin}
+    server.plugin_registry["check_context"] = plugin
+    server.tool_registry["check_context"] = plugin.get_tools()[0]
+
+    # Test with user_context injected in arguments
+    # Note: user_context in arguments is expected to be a dict or json string
+    context_data = {
+        "user_id": "u1",
+        "email": "u1@e.com",
+        "groups": [],
+        "scopes": [],
+        "downstream_token": "token",
+    }
+
+    # 1. Pass as dict
+    result = await server._call_tool_handler("check_context", {"user_context": context_data})
+    assert result[0].text == "Context Received"  # type: ignore[union-attr]
+
+    # 2. Pass as JSON string
+    result_json = await server._call_tool_handler("check_context", {"user_context": json.dumps(context_data)})
+    assert result_json[0].text == "Context Received"  # type: ignore[union-attr]
+
+    # 3. Malformed JSON
+    # Should log warning and proceed with user_context=None
+    result_malformed = await server._call_tool_handler("check_context", {"user_context": "{invalid"})
+    assert result_malformed[0].text == "No Context"  # type: ignore[union-attr]
+
+    # 4. Invalid UserContext data (validation error)
+    # Should log warning and proceed with user_context=None
+    result_invalid = await server._call_tool_handler("check_context", {"user_context": {"invalid_field": 1}})
+    assert result_invalid[0].text == "No Context"  # type: ignore[union-attr]
 
 
 @pytest.mark.asyncio

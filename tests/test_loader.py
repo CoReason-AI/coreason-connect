@@ -11,10 +11,11 @@
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from unittest.mock import Mock, patch
 
 import pytest
+from coreason_identity.models import UserContext
 
 from coreason_connect.config import load_config
 from coreason_connect.interfaces import SecretsProvider
@@ -269,7 +270,12 @@ plugins:
         def get_tools(self) -> list[ToolDefinition]:
             return []
 
-        def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+        def execute(
+            self,
+            tool_name: str,
+            arguments: dict[str, Any] | None = None,
+            user_context: Optional[UserContext] = None,
+        ) -> Any:
             return "executed"
 
     mock_module = Mock()
@@ -357,7 +363,12 @@ plugins:
         def get_tools(self) -> list[ToolDefinition]:
             return []
 
-        def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+        def execute(
+            self,
+            tool_name: str,
+            arguments: dict[str, Any] | None = None,
+            user_context: Optional[UserContext] = None,
+        ) -> Any:
             return "ok"
 
     mock_module = Mock()

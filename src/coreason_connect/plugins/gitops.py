@@ -8,9 +8,10 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
-from typing import Any
+from typing import Any, Optional
 
 import httpx
+from coreason_identity.models import UserContext
 from mcp.types import Tool
 
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
@@ -92,12 +93,18 @@ class GitOpsConnector(ConnectorProtocol):
             ),
         ]
 
-    def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+    def execute(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any] | None = None,
+        user_context: Optional[UserContext] = None,
+    ) -> Any:
         """Execute a GitOps tool.
 
         Args:
             tool_name: The name of the tool to execute.
             arguments: A dictionary of arguments for the tool.
+            user_context: The user context containing identity and tokens.
 
         Returns:
             Any: The result of the tool execution.
