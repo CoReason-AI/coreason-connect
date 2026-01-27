@@ -9,9 +9,10 @@
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
 from abc import abstractmethod
-from typing import Any
+from typing import Any, Optional
 
 import pytest
+from coreason_identity.models import UserContext
 from mcp.types import Tool
 
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
@@ -43,7 +44,12 @@ class ConcreteConnector(ConnectorProtocol):
             )
         ]
 
-    def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+    def execute(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any] | None = None,
+        user_context: Optional[UserContext] = None,
+    ) -> Any:
         args_str = str(arguments) if arguments else "None"
         return f"executed_{tool_name}_with_{args_str}"
 
@@ -128,7 +134,12 @@ def test_complex_connector_scenario() -> None:
                 )
             return tools
 
-        def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+        def execute(
+            self,
+            tool_name: str,
+            arguments: dict[str, Any] | None = None,
+            user_context: Optional[UserContext] = None,
+        ) -> Any:
             return "ok"
 
     secrets = MockSecretsProvider()
@@ -170,7 +181,12 @@ def test_connector_inheritance_chain() -> None:
         def get_tools(self) -> list[ToolDefinition]:
             return []
 
-        def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+        def execute(
+            self,
+            tool_name: str,
+            arguments: dict[str, Any] | None = None,
+            user_context: Optional[UserContext] = None,
+        ) -> Any:
             return self.helper()
 
         def specific_task(self) -> None:

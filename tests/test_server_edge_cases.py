@@ -8,10 +8,11 @@
 #
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
-from typing import Any
+from typing import Any, Optional
 from unittest.mock import MagicMock
 
 import pytest
+from coreason_identity.models import UserContext
 from mcp.types import Tool
 
 from coreason_connect.interfaces import ConnectorProtocol, SecretsProvider
@@ -54,7 +55,12 @@ async def test_spend_gate_precedence_over_validation(server: CoreasonConnectServ
                 )
             ]
 
-        def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+        def execute(
+            self,
+            tool_name: str,
+            arguments: dict[str, Any] | None = None,
+            user_context: Optional[UserContext] = None,
+        ) -> Any:
             # Should NOT be reached
             return "LAUNCHED"
 
@@ -120,7 +126,12 @@ async def test_runtime_tampering_protection(server: CoreasonConnectServiceAsync)
         def get_tools(self) -> list[ToolDefinition]:
             return self._tools
 
-        def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+        def execute(
+            self,
+            tool_name: str,
+            arguments: dict[str, Any] | None = None,
+            user_context: Optional[UserContext] = None,
+        ) -> Any:
             return "Executed"
 
     plugin = MutablePlugin(server.secrets)

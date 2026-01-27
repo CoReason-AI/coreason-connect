@@ -12,6 +12,7 @@ from typing import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
+from coreason_identity.models import UserContext
 from httpx import HTTPStatusError, Request, Response
 
 from coreason_connect.interfaces import SecretsProvider
@@ -191,3 +192,20 @@ def test_complex_scenario_chain(connector: MS365Connector, mock_graph_client: Ma
     assert send_res["status"] == "sent"
 
     assert mock_graph_client.post.call_count == 3
+
+
+def test_execute_with_user_context(connector: MS365Connector, mock_graph_client: MagicMock) -> None:
+    """Test execution with user context injecting token."""
+    user_context = UserContext(user_id="user1", email="u@e.com", groups=[], scopes=[], downstream_token="abc-123")
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"id": "123"}
+    mock_graph_client.post.return_value = mock_response
+
+    connector.execute(
+        "draft_email",
+        {"to": "a", "subject": "b", "body": "c"},
+        user_context=user_context,
+    )
+
+    args, kwargs = mock_graph_client.post.call_args
+    assert kwargs["headers"]["Authorization"] == "Bearer abc-123"

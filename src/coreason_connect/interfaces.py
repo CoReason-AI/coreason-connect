@@ -9,8 +9,9 @@
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
 from abc import ABC, abstractmethod
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Optional, Protocol, runtime_checkable
 
+from coreason_identity.models import UserContext
 from mcp.types import Tool  # noqa: F401
 
 from coreason_connect.types import ToolDefinition
@@ -72,12 +73,18 @@ class ConnectorProtocol(ABC):
         pass  # pragma: no cover
 
     @abstractmethod
-    def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
+    def execute(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any] | None = None,
+        user_context: Optional[UserContext] = None,
+    ) -> Any:
         """Execute the logic.
 
         Args:
             tool_name: The name of the tool to execute.
             arguments: A dictionary of arguments for the tool.
+            user_context: The user context containing identity and tokens.
 
         Returns:
             The result of the tool execution.
