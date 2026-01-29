@@ -9,10 +9,10 @@
 # Source Code: https://github.com/CoReason-AI/coreason_connect
 
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, cast
 
 from fastapi import FastAPI, Request
-from fastapi.responses import Response, JSONResponse
+from fastapi.responses import JSONResponse, Response
 from mcp.server.sse import SseServerTransport
 
 from coreason_connect.config import load_config
@@ -70,33 +70,29 @@ app = FastAPI(
 class McpSseResponse(Response):
     """Custom Response to handle MCP SSE connection via ASGI."""
 
-    def __init__(self, app_state: Any):
+    def __init__(self, app_state: Any) -> None:
         super().__init__()
         self.app_state = app_state
 
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
-        transport = self.app_state.transport
-        service = self.app_state.service
+        transport = cast(SseServerTransport, self.app_state.transport)
+        service = cast(CoreasonConnectServiceAsync, self.app_state.service)
 
         # connect_sse yields streams which we pass to the service runner
         async with transport.connect_sse(scope, receive, send) as streams:
             read_stream, write_stream = streams
-            await service.run(
-                read_stream,
-                write_stream,
-                service.create_initialization_options()
-            )
+            await service.run(read_stream, write_stream, service.create_initialization_options())
 
 
 class McpMessageResponse(Response):
     """Custom Response to handle MCP messages via ASGI."""
 
-    def __init__(self, app_state: Any):
+    def __init__(self, app_state: Any) -> None:
         super().__init__()
         self.app_state = app_state
 
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
-        transport = self.app_state.transport
+        transport = cast(SseServerTransport, self.app_state.transport)
         await transport.handle_post_message(scope, receive, send)
 
 
@@ -115,9 +111,7 @@ async def handle_messages(request: Request) -> Response:
 @app.get("/health")
 async def health(request: Request) -> JSONResponse:
     """Health check endpoint."""
-    service = request.app.state.service
-    return JSONResponse({
-        "status": "live",
-        "plugins": list(service.plugins.keys()),
-        "tools": list(service.tool_registry.keys())
-    })
+    service = cast(CoreasonConnectServiceAsync, request.app.state.service)
+    return JSONResponse(
+        {"status": "live", "plugins": list(service.plugins.keys()), "tools": list(service.tool_registry.keys())}
+    )
