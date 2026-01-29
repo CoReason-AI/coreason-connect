@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title="Coreason Connect MCP Gateway",
     description="MCP Gateway Microservice for Coreason Cortex",
-    version="0.2.1",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
