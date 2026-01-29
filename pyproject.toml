@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "coreason_connect"
-version = "0.2.1"
+version = "0.3.0"
 description = "coreason-connect"
 authors = ["Gowtham A Rao <gowtham.rao@coreason.ai>"]
 license = "Prosperity-3.0"
@@ -16,6 +16,8 @@ anyio = "^4.12.1"
 httpx = "^0.28.1"
 aiofiles = "^25.1.0"
 coreason-identity = "*"
+fastapi = ">=0.100.0"
+uvicorn = ">=0.20.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.2"
@@ -35,7 +37,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "coreason_connect"
-version = "0.2.1"
+version = "0.3.0"
 description = "coreason-connect"
 readme = "README.md"
 requires-python = ">=3.11"
