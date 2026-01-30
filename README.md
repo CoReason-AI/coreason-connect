@@ -4,6 +4,8 @@
 
 coreason-connect transforms the CoReason "Brain" (coreason-cortex) from a passive text generator into an active **Agentic Workforce**. It solves the "Last Mile" problem of Enterprise AI by securely executing actions (RPC) on behalf of specific human users.
 
+> **v0.3.0 Update**: Now functions as a standalone **MCP Gateway Microservice** with SSE support.
+
 ![License](https://img.shields.io/badge/license-Prosperity%203.0-blue)
 [![Build Status](https://github.com/CoReason-AI/coreason_connect/actions/workflows/build.yml/badge.svg)](https://github.com/CoReason-AI/coreason_connect/actions)
 [![Code Style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
@@ -32,30 +34,18 @@ For detailed requirements and architecture, see [Product Requirements](docs/prod
 
 ## Usage
 
-Here is a simple example of how to initialize the server and load plugins:
+For detailed setup, see [Usage Guide](docs/usage.md).
 
-```python
-import asyncio
-from coreason_connect.server import CoreasonConnectServer
-from coreason_connect.config import AppConfig
+### Quick Start (Docker)
 
-async def main():
-    # Initialize configuration (looks for connectors.yaml by default or env vars)
-    config = AppConfig()
-
-    # Create the server instance
-    server = CoreasonConnectServer(config)
-
-    # Start the server (this initializes plugins and the MCP server)
-    # In a real deployment, this would likely run indefinitely or attach to a transport.
-    await server.initialize()
-    print("Coreason Connect Server initialized.")
-
-    # Example: Listing available tools
-    tools = await server.list_tools()
-    for tool in tools:
-        print(f"Tool: {tool.name} - {tool.description}")
-
-if __name__ == "__main__":
-    asyncio.run(main())
+```bash
+docker run -d \
+  -p 8000:8000 \
+  -v $(pwd)/connectors.yaml:/app/connectors.yaml \
+  coreason-connect:latest
 ```
+
+The service exposes:
+*   `GET /sse`: Server-Sent Events endpoint for MCP connection.
+*   `POST /messages`: JSON-RPC message endpoint.
+*   `GET /health`: Service health check.

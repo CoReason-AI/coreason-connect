@@ -50,7 +50,7 @@ class CoreasonConnectServiceAsync(Server):
         secrets: SecretsProvider | None = None,
         client: httpx.AsyncClient | None = None,
         name: str = "coreason-connect",
-        version: str = "0.2.0",
+        version: str = "0.3.0",
     ) -> None:
         """Initialize the MCP Server.
 
@@ -238,7 +238,7 @@ class CoreasonConnectService:
         secrets: SecretsProvider | None = None,
         client: httpx.AsyncClient | None = None,
         name: str = "coreason-connect",
-        version: str = "0.2.0",
+        version: str = "0.3.0",
     ) -> None:
         self._async = CoreasonConnectServiceAsync(config, secrets, client, name, version)
 
